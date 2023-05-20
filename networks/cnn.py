@@ -25,11 +25,8 @@ class CNN(Module):
     def forward(self, x):
         # First convolutions
         x = F.relu(self.conv_1(x))
-        print(x.shape)
         x = F.relu(self.conv_2(x))
-        print(x.shape)
         x = F.relu(self.conv_3(x))
-        print(x.shape)
 
         # Linear layers
         x = self.flatten(x)
