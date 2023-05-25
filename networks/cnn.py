@@ -35,9 +35,44 @@ class CNN(Module):
         x = F.relu(self.linear_3(x))
         output = self.output(x)
         return output
+    
+
+class CNN_pool(Module):
+    def __init__(self, channels=1):
+        super().__init__()
+        self.conv_1 = Conv2d(
+            in_channels=channels, out_channels=128, kernel_size=(3, 3), padding = "same"
+        )
+        self.conv_2 = Conv2d(
+            in_channels=128, out_channels=128, kernel_size=(3, 3), padding = "same"
+        )
+        self.conv_3 = Conv2d(
+            in_channels=128, out_channels=16, kernel_size=(3, 3), padding = "same"
+        )
+        self.pool = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
+        self.flatten = Flatten()
+        self.linear_1 = Linear(in_features = 144, out_features = 256)
+        self.output = Linear(in_features = 256, out_features=2)
+    
+
+    def forward(self, x):
+        # First convolutions
+        x = F.relu(self.conv_1(x))
+        x = self.pool(x)
+        x = F.relu(self.conv_2(x))
+        x = self.pool(x)
+        x = F.relu(self.conv_3(x))
+        x = self.pool(x)
+
+        # Linear layers
+        x = self.flatten(x)
+        x = F.relu(self.linear_1(x))
+        output = self.output(x)
+        return output
+
 
 if __name__ == '__main__':
-    net = CNN()
+    net = CNN_pool()
     test = torch.rand(size=(1, 1, 25, 25))
     res = net(test)
     print(res.shape)

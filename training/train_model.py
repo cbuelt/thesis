@@ -5,7 +5,7 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import get_data_loader
-from networks.cnn import CNN
+from networks.cnn import CNN, CNN_pool
 
 
 
@@ -18,14 +18,14 @@ if __name__ == '__main__':
     net = CNN()
     net.to(device)
     #Specify parameters and functions
-    epochs = 32
-    batch_size = 40
+    epochs = 80
+    batch_size = 64
     criterion = torch.nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.01)
+    optimizer = optim.Adam(net.parameters(), lr=0.005)
 
 
     #Get dataloaders
-    dataloader, dataset = get_data_loader(data_path = "data/data_test/", batch_size=batch_size)
+    dataloader, dataset = get_data_loader(data_path = "data/exp_1/data/", batch_size=batch_size)
 
     for epoch in range(epochs):
         running_loss = 0.0
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     print('Finished Training')
     
 # Save model
-torch.save(net.state_dict(), "cnn.pt")
+torch.save(net.state_dict(), "data/exp_1/checkpoints/cnn_test.pt")
 print("Model saved")
         
 
