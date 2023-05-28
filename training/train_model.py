@@ -11,6 +11,9 @@ from networks.cnn import CNN, CNN_pool
 
 
 if __name__ == '__main__':
+    #Set model
+    model = "schlather"
+    exp = "exp_2"
     #Set device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
@@ -18,14 +21,15 @@ if __name__ == '__main__':
     net = CNN()
     net.to(device)
     #Specify parameters and functions
-    epochs = 80
-    batch_size = 64
+    epochs = 32
+    batch_size = 40
     criterion = torch.nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.005)
+    optimizer = optim.Adam(net.parameters(), lr=0.01)
 
 
     #Get dataloaders
-    dataloader, dataset = get_data_loader(data_path = "data/exp_1/data/", batch_size=batch_size)
+    path = f"data/{exp}/data/"
+    dataloader, dataset = get_data_loader(data_path = path, model = model, batch_size=batch_size, var = "train")
 
     for epoch in range(epochs):
         running_loss = 0.0
@@ -51,7 +55,8 @@ if __name__ == '__main__':
     print('Finished Training')
     
 # Save model
-torch.save(net.state_dict(), "data/exp_1/checkpoints/cnn_test.pt")
+checkpoint_path = f"data/{exp}/checkpoints/cnn_{model}.pt"
+torch.save(net.state_dict(), checkpoint_path)
 print("Model saved")
         
 
