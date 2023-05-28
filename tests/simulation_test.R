@@ -4,11 +4,10 @@ library(lattice)
 library(parallel)
 library(gridExtra)
 
-current_path = rstudioapi::getActiveDocumentContext()$path 
+current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- detectCores() - 1
-
+no_cores <- 20 #detectCores() - 1
 
 simulate <- function(params){
   x <- seq(1,20, length = 25)
@@ -18,6 +17,7 @@ simulate <- function(params){
   if (model == "brown"){
     data <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
   }else{
+    grid <- array(unlist(grid), dim = c(625,2))
     data <- rmaxstab(1, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
   }
   return(data)
@@ -31,7 +31,7 @@ generate_params <- function(n, range_seq, smooth_seq){
 }
 
 #Set general parameters
-n <- 2000
+n <- 400
 exp <- "exp_2"
 
 
@@ -39,6 +39,7 @@ exp <- "exp_2"
 ####### Brown-Resnick Model
 #
 model = "brown"
+type = "val"
 
 # Simulate training data
 range_seq = c(0.1,3)
@@ -47,7 +48,7 @@ train_params <- generate_params(n, range_seq, smooth_seq)
 
 
 #Save params
-save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
+save(train_params, file = paste0("../data/",exp,"/data/", model, "_", type, "_params.RData"))
 #Create train set
 # Initiate cluster
 cl <- makeCluster(no_cores)
@@ -58,7 +59,7 @@ train_data <- parApply(cl, train_params, MARGIN = 1, FUN = simulate)
 stopCluster(cl)
 
 #Save train_data
-save(train_data, file = paste0("../data/",exp,"/data/", model, "_train_data.RData"))
+save(train_data, file = paste0("../data/",exp,"/data/", model, "_", type, "_data.RData"))
 
 
 #Test set
@@ -103,7 +104,7 @@ range <- runif(n, min = range_seq[1], max = range_seq[2])
 smooth <- runif(n, min = smooth_seq[1], max = smooth_seq[2])
 train_params <- cbind(range,smooth)
 #Save params
-save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
+save(train_params, file = paste0("../data/",exp,"/data/", model, "_", type, "_params.RData"))
 #Create train set
 # Initiate cluster
 cl <- makeCluster(no_cores)
@@ -114,7 +115,7 @@ train_data <- parApply(cl, train_params, MARGIN = 1, FUN = simulate)
 stopCluster(cl)
 
 #Save train_data
-save(train_data, file = paste0("../data/",exp,"/data/", model, "_train_data.RData"))
+save(train_data, file = paste0("../data/",exp,"/data/", model, "_", type, "_data.RData"))
 
 
 #Test set
@@ -139,19 +140,5 @@ stopCluster(cl)
 
 save(test_data, file = paste0("../data/",exp,"/data/", model, "_test_data.RData"))
 
-
-
-
-
-
-# Without grid
-range <- 0.8
-smooth <- 1.2
-
-
-
-
-data <- rmaxstab(n = 2, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
-image(x, x, array(data[2,], dim = c(25,25)), col = terrain.colors(64))
 
 
