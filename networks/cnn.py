@@ -1,10 +1,10 @@
-from torch.nn import Conv2d, MaxPool2d, Linear, ModuleList, Flatten, Dropout, Module
+from torch.nn import Conv2d, MaxPool2d, Linear, Flatten, Dropout, Module
 import torch.nn.functional as F
 import torch
 
 
 class CNN(Module):
-    def __init__(self, channels=1):
+    def __init__(self, dropout = 0, channels=1):
         super().__init__()
         self.conv_1 = Conv2d(
             in_channels=channels, out_channels=128, kernel_size=(3, 3), stride = 2, padding = 1
@@ -20,20 +20,27 @@ class CNN(Module):
         self.linear_2 = Linear(in_features = 4, out_features = 8)
         self.linear_3 = Linear(in_features = 8, out_features = 16)
         self.output = Linear(in_features = 16, out_features=2)
+        self.dropout = Dropout(p = dropout)
+        self.output_1 = Linear(in_features = 16, out_features=1)
+        self.output_2 = Linear(in_features = 16, out_features=1)
     
 
     def forward(self, x):
         # First convolutions
         x = F.relu(self.conv_1(x))
         x = F.relu(self.conv_2(x))
-        x = F.relu(self.conv_3(x))
+        x = F.relu(self.conv_3(x))      
 
         # Linear layers
         x = self.flatten(x)
         x = F.relu(self.linear_1(x))
+        x = self.dropout(x)
         x = F.relu(self.linear_2(x))
         x = F.relu(self.linear_3(x))
-        output = self.output(x)
+        output_1 = self.output_1(x)
+        output_2 = F.sigmoid(self.output_2(x))
+        output = torch.cat([output_1, output_2], dim = 1)
+        #output = F.sigmoid(self.output(x))
         return output
     
 
@@ -52,9 +59,9 @@ class CNN_pool(Module):
         self.pool = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
         self.flatten = Flatten()
         self.linear_1 = Linear(in_features = 144, out_features = 256)
-        self.output = Linear(in_features = 256, out_features=2)
-    
+        self.output = Linear(in_features = 256, out_features = 2)
 
+    
     def forward(self, x):
         # First convolutions
         x = F.relu(self.conv_1(x))

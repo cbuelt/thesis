@@ -18,14 +18,15 @@ class SpatialField(Dataset):
         self,
         data_path : str,
         model : str,
-        var: str,        
+        var: str,
+        transform : bool = True
     ):
         self.data_path = data_path
         self.model = model
         self.var = var
+        self.transform = transform
         self.img_data = load_data(data_path, model, var = var)
         self.param_data = load_params(data_path, model, var = var)
-
         self.sample_size = len(self.param_data)
 
 
@@ -36,9 +37,19 @@ class SpatialField(Dataset):
         img = self.img_data[idx,:,:]
         param = self.param_data[idx].astype("float32")
 
+        #Transform
+        if self.transform:        
+            img = np.log(img)    
+            #img_mean = img.mean()
+            #img_std = img.std()
+            #img = (img - img_mean)/img_std            
+            #param[0] = np.log(param[0])
+            #param[1] = np.log(param[1]/(2-param[1]))
+            param[0] = (param[0]-0.1)/(3-0.1)
+            param[1] = param[1]/2
+
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
-
         return img, param
 
 
