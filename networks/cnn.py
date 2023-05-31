@@ -1,4 +1,4 @@
-from torch.nn import Conv2d, MaxPool2d, Linear, Flatten, Dropout, Module
+from torch.nn import Conv2d, MaxPool2d, Linear, Flatten, Dropout, Module, ModuleList
 import torch.nn.functional as F
 import torch
 
@@ -40,42 +40,59 @@ class CNN(Module):
         output_1 = self.output_1(x)
         output_2 = F.sigmoid(self.output_2(x))
         output = torch.cat([output_1, output_2], dim = 1)
-        #output = F.sigmoid(self.output(x))
         return output
     
 
 class CNN_pool(Module):
     def __init__(self, channels=1):
         super().__init__()
-        self.conv_1 = Conv2d(
-            in_channels=channels, out_channels=128, kernel_size=(3, 3), padding = "same"
+        self.conv_input = Conv2d(
+            in_channels=channels, out_channels=64, kernel_size=(3, 3), padding = "same"
         )
-        self.conv_2 = Conv2d(
+        self.conv_64 = Conv2d(
+            in_channels=64, out_channels=64, kernel_size=(3, 3), padding = "same"
+        )
+        self.conv_128 = Conv2d(
+            in_channels=64, out_channels=128, kernel_size=(3, 3), padding = "same"
+        )
+        self.conv_128_2 = Conv2d(
             in_channels=128, out_channels=128, kernel_size=(3, 3), padding = "same"
         )
-        self.conv_3 = Conv2d(
-            in_channels=128, out_channels=16, kernel_size=(3, 3), padding = "same"
+        self.conv_256 = Conv2d(
+            in_channels=128, out_channels=256, kernel_size=(3, 3), padding = "same"
+        )
+        self.conv_256_2 = Conv2d(
+            in_channels=256, out_channels=256, kernel_size=(3, 3), padding = "same"
         )
         self.pool = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
         self.flatten = Flatten()
-        self.linear_1 = Linear(in_features = 144, out_features = 256)
+        self.linear_1 = Linear(in_features = 2304, out_features = 256)
         self.output = Linear(in_features = 256, out_features = 2)
+        self.output_1 = Linear(in_features = 256, out_features=1)
+        self.output_2 = Linear(in_features = 256, out_features=1)
 
     
     def forward(self, x):
         # First convolutions
-        x = F.relu(self.conv_1(x))
+        x = F.relu(self.conv_input(x))
+        x = F.relu(self.conv_64(x))
         x = self.pool(x)
-        x = F.relu(self.conv_2(x))
+        x = F.relu(self.conv_128(x))
+        x = F.relu(self.conv_128_2(x))
         x = self.pool(x)
-        x = F.relu(self.conv_3(x))
+        x = F.relu(self.conv_256(x))
+        x = F.relu(self.conv_256_2(x))     
         x = self.pool(x)
 
         # Linear layers
         x = self.flatten(x)
         x = F.relu(self.linear_1(x))
-        output = self.output(x)
+        output_1 = self.output_1(x)
+        output_2 = F.sigmoid(self.output_2(x))
+        output = torch.cat([output_1, output_2], dim = 1)
         return output
+
+
 
 
 if __name__ == '__main__':

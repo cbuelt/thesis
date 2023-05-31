@@ -39,13 +39,15 @@ class SpatialField(Dataset):
 
         #Transform
         if self.transform:        
-            img = np.log(img)    
-            #img_mean = img.mean()
-            #img_std = img.std()
-            #img = (img - img_mean)/img_std            
-            #param[0] = np.log(param[0])
+            if self.model =="brown":
+                img = np.log(img)    
+            else:
+                img_mean = img.mean()
+                img_std = img.std()
+                img = (img - img_mean)/img_std            
+            param[0] = np.log(param[0])
             #param[1] = np.log(param[1]/(2-param[1]))
-            param[0] = (param[0]-0.1)/(3-0.1)
+            #param[0] = (param[0]-0.1)/(3-0.1)
             param[1] = param[1]/2
 
         #Expand dimension of image
@@ -57,6 +59,7 @@ if __name__ == '__main__':
     exp = "exp_2"
     model = "brown"
     path = f"data/{exp}/data/"
-    dataloader, dataset = get_data_loader(data_path = path, model = model, batch_size=64)
+    val_dataloader, val_dataset = get_data_loader(data_path = path, model = model, batch_size=400, var = "val")
+    print(len(val_dataloader))
 
 
