@@ -3,11 +3,14 @@ library(graphics)
 library(lattice)
 library(parallel)
 library(gridExtra)
+library(randtoolbox)
+
 
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
 no_cores <- 20 #detectCores() - 1
+
 
 simulate <- function(params){
   x <- seq(1,20, length = 25)
