@@ -9,6 +9,43 @@ setwd(dirname(current_path))
 #Get nodes
 no_cores <- detectCores() - 1
 
+#Test
+#Create weights
+weights <- array(data = NA, dim = choose(625,2))
+cnt <- 1
+for (i in 1:624){
+  for (j in (i+1):625){
+    if (abs(i-j) <=3){
+      weights[cnt] <- 1
+    }else{
+      weights[cnt] <- 0
+    }
+    cnt <- cnt +1
+  }
+}
+
+range <- 2.5
+smooth <- 0.8
+start_range <- runif(1, 1.5,3)
+start_smooth <- runif(1,0.5,1.7)
+x <- seq(1,20, length = 25)
+grid <- expand.grid(x,x)
+grid <- array(unlist(grid), dim = c(625,2))
+data <- rmaxstab(n = 3, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
+fit <- fitmaxstab(data, grid, cov.mod = "powexp", method = "L-BFGS-B", weights = weights,
+                  start = list("nugget" = 0, "range" = start_range, "smooth" = start_smooth))
+print(fit$fitted.values)
+
+#Fit with append
+test <- array(rep(data[1,], each = 3), dim = c(3, 625))
+fit_2 <- fitmaxstab(test, grid, cov.mod = "powexp", method = "L-BFGS-B", weights = weights,
+                    start = list("nugget" = 0, "range" = start_range, "smooth" = start_smooth))
+print(fit_2$fitted.values)
+
+
+
+
+
 
 model <- "brown"
 load(paste0("../data/exp_1/data/", model, "_test_data.RData"))

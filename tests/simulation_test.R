@@ -12,12 +12,12 @@ no_cores <- 20 #detectCores() - 1
 simulate <- function(params){
   x <- seq(1,20, length = 25)
   grid <- expand.grid(x,x)
+  grid <- array(unlist(grid), dim = c(625,2))
   range <- params[["range"]]
   smooth <- params[["smooth"]]
   if (model == "brown"){
     data <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
   }else{
-    grid <- array(unlist(grid), dim = c(625,2))
     data <- rmaxstab(1, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
   }
   return(data)

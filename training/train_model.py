@@ -7,6 +7,7 @@ import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import get_data_loader
 from networks.cnn import CNN, CNN_pool
+from networks.tests import VisionTransformer
 
 
 def retransform(params):

@@ -1,254 +1,443 @@
 import math
-from functools import partial
 from collections import OrderedDict
-from copy import Error, deepcopy
-from re import S
-from numpy.lib.arraypad import pad
-import numpy as np
+from functools import partial
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Union, Tuple, Sequence
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-#from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from timm.models.layers import DropPath, trunc_normal_
-import torch.fft
-from torch.nn.modules.container import Sequential
-from torch.utils.checkpoint import checkpoint_sequential
-from einops import rearrange, repeat
-from einops.layers.torch import Rearrange
+from itertools import repeat
+import collections
+import warnings
 
 
-class Mlp(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
+def _make_ntuple(x: Any, n: int) -> Tuple[Any, ...]:
+    """
+    Make n-tuple from input x. If x is an iterable, then we just convert it to tuple.
+    Otherwise, we will make a tuple of length n, all with value of x.
+    reference: https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/utils.py#L8
 
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
-        return x
+    Args:
+        x (Any): input value
+        n (int): length of the resulting tuple
+    """
+    if isinstance(x, collections.abc.Iterable):
+        return tuple(x)
+    return tuple(repeat(x, n))
 
-
-class AFNO2D(nn.Module):
-    def __init__(self, hidden_size, num_blocks=8, sparsity_threshold=0.01, hard_thresholding_fraction=1, hidden_size_factor=1):
-        super().__init__()
-        assert hidden_size % num_blocks == 0, f"hidden_size {hidden_size} should be divisble by num_blocks {num_blocks}"
-
-        self.hidden_size = hidden_size
-        self.sparsity_threshold = sparsity_threshold
-        self.num_blocks = num_blocks
-        self.block_size = self.hidden_size // self.num_blocks
-        self.hard_thresholding_fraction = hard_thresholding_fraction
-        self.hidden_size_factor = hidden_size_factor
-        self.scale = 0.02
-
-        self.w1 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size, self.block_size * self.hidden_size_factor))
-        self.b1 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size * self.hidden_size_factor))
-        self.w2 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size * self.hidden_size_factor, self.block_size))
-        self.b2 = nn.Parameter(self.scale * torch.randn(2, self.num_blocks, self.block_size))
-
-    def forward(self, x):
-        bias = x
-
-        dtype = x.dtype
-        x = x.float()
-        B, H, W, C = x.shape
-
-        x = torch.fft.rfft2(x, dim=(1, 2), norm="ortho")
-        x = x.reshape(B, H, W // 2 + 1, self.num_blocks, self.block_size)
-
-        o1_real = torch.zeros([B, H, W // 2 + 1, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
-        o1_imag = torch.zeros([B, H, W // 2 + 1, self.num_blocks, self.block_size * self.hidden_size_factor], device=x.device)
-        o2_real = torch.zeros(x.shape, device=x.device)
-        o2_imag = torch.zeros(x.shape, device=x.device)
-
-
-        total_modes = H // 2 + 1
-        kept_modes = int(total_modes * self.hard_thresholding_fraction)
-
-        o1_real[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes] = F.relu(
-            torch.einsum('...bi,bio->...bo', x[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes].real, self.w1[0]) - \
-            torch.einsum('...bi,bio->...bo', x[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes].imag, self.w1[1]) + \
-            self.b1[0]
-        )
-
-        o1_imag[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes] = F.relu(
-            torch.einsum('...bi,bio->...bo', x[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes].imag, self.w1[0]) + \
-            torch.einsum('...bi,bio->...bo', x[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes].real, self.w1[1]) + \
-            self.b1[1]
-        )
-
-        o2_real[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes]  = (
-            torch.einsum('...bi,bio->...bo', o1_real[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes], self.w2[0]) - \
-            torch.einsum('...bi,bio->...bo', o1_imag[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes], self.w2[1]) + \
-            self.b2[0]
-        )
-
-        o2_imag[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes]  = (
-            torch.einsum('...bi,bio->...bo', o1_imag[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes], self.w2[0]) + \
-            torch.einsum('...bi,bio->...bo', o1_real[:, total_modes-kept_modes:total_modes+kept_modes, :kept_modes], self.w2[1]) + \
-            self.b2[1]
-        )
-
-        x = torch.stack([o2_real, o2_imag], dim=-1)
-        x = F.softshrink(x, lambd=self.sparsity_threshold)
-        x = torch.view_as_complex(x)
-        x = x.reshape(B, H, W // 2 + 1, C)
-        x = torch.fft.irfft2(x, s=(H, W), dim=(1,2), norm="ortho")
-        x = x.type(dtype)
-
-        return x + bias
-
-
-class Block(nn.Module):
+class ConvNormActivation(torch.nn.Sequential):
     def __init__(
-            self,
-            dim,
-            mlp_ratio=4.,
-            drop=0.,
-            drop_path=0.,
-            act_layer=nn.GELU,
-            norm_layer=nn.LayerNorm,
-            double_skip=True,
-            num_blocks=8,
-            sparsity_threshold=0.01,
-            hard_thresholding_fraction=1.0
-        ):
-        super().__init__()
-        self.norm1 = norm_layer(dim)
-        self.filter = AFNO2D(dim, num_blocks, sparsity_threshold, hard_thresholding_fraction) 
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        #self.drop_path = nn.Identity()
-        self.norm2 = norm_layer(dim)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
-        self.double_skip = double_skip
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, Tuple[int, ...]] = 3,
+        stride: Union[int, Tuple[int, ...]] = 1,
+        padding: Optional[Union[int, Tuple[int, ...], str]] = None,
+        groups: int = 1,
+        norm_layer: Optional[Callable[..., torch.nn.Module]] = torch.nn.BatchNorm2d,
+        activation_layer: Optional[Callable[..., torch.nn.Module]] = torch.nn.ReLU,
+        dilation: Union[int, Tuple[int, ...]] = 1,
+        inplace: Optional[bool] = True,
+        bias: Optional[bool] = None,
+        conv_layer: Callable[..., torch.nn.Module] = torch.nn.Conv2d,
+    ) -> None:
 
-    def forward(self, x):
-        residual = x
-        x = self.norm1(x)
-        x = self.filter(x)
+        if padding is None:
+            if isinstance(kernel_size, int) and isinstance(dilation, int):
+                padding = (kernel_size - 1) // 2 * dilation
+            else:
+                _conv_dim = len(kernel_size) if isinstance(kernel_size, Sequence) else len(dilation)
+                kernel_size = _make_ntuple(kernel_size, _conv_dim)
+                dilation = _make_ntuple(dilation, _conv_dim)
+                padding = tuple((kernel_size[i] - 1) // 2 * dilation[i] for i in range(_conv_dim))
+        if bias is None:
+            bias = norm_layer is None
 
-        if self.double_skip:
-            x = x + residual
-            residual = x
+        layers = [
+            conv_layer(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride,
+                padding,
+                dilation=dilation,
+                groups=groups,
+                bias=bias,
+            )
+        ]
 
-        x = self.norm2(x)
-        x = self.mlp(x)
-        x = self.drop_path(x)
-        x = x + residual
-        return x
+        if norm_layer is not None:
+            layers.append(norm_layer(out_channels))
+
+        if activation_layer is not None:
+            params = {} if inplace is None else {"inplace": inplace}
+            layers.append(activation_layer(**params))
+        super().__init__(*layers)
+        self.out_channels = out_channels
+
+        if self.__class__ == ConvNormActivation:
+            warnings.warn(
+                "Don't use ConvNormActivation directly, please use Conv2dNormActivation and Conv3dNormActivation instead."
+            )
 
 
-class AFNONet(nn.Module):
+class MLP(torch.nn.Sequential):
+    """This block implements the multi-layer perceptron (MLP) module.
+
+    Args:
+        in_channels (int): Number of channels of the input
+        hidden_channels (List[int]): List of the hidden channel dimensions
+        norm_layer (Callable[..., torch.nn.Module], optional): Norm layer that will be stacked on top of the linear layer. If ``None`` this layer won't be used. Default: ``None``
+        activation_layer (Callable[..., torch.nn.Module], optional): Activation function which will be stacked on top of the normalization layer (if not None), otherwise on top of the linear layer. If ``None`` this layer won't be used. Default: ``torch.nn.ReLU``
+        inplace (bool, optional): Parameter for the activation layer, which can optionally do the operation in-place.
+            Default is ``None``, which uses the respective default values of the ``activation_layer`` and Dropout layer.
+        bias (bool): Whether to use bias in the linear layer. Default ``True``
+        dropout (float): The probability for the dropout layer. Default: 0.0
+    """
+
     def __init__(
-            self,
-            img_size= (25, 25),
-            patch_size= (5,5),
-            in_chans=1,
-            out_dim=1,
-            embed_dim=150,
-            depth=5,
-            mlp_ratio=4.,
-            drop_rate=0.,
-            drop_path_rate=0.,
-            num_blocks=5,
-            sparsity_threshold=0.01,
-            hard_thresholding_fraction=1.0,
-        ):
+        self,
+        in_channels: int,
+        hidden_channels: List[int],
+        norm_layer: Optional[Callable[..., torch.nn.Module]] = None,
+        activation_layer: Optional[Callable[..., torch.nn.Module]] = torch.nn.ReLU,
+        inplace: Optional[bool] = None,
+        bias: bool = True,
+        dropout: float = 0.0,
+    ):
+        # The addition of `norm_layer` is inspired from the implementation of TorchMultimodal:
+        # https://github.com/facebookresearch/multimodal/blob/5dec8a/torchmultimodal/modules/layers/mlp.py
+        params = {} if inplace is None else {"inplace": inplace}
+
+        layers = []
+        in_dim = in_channels
+        for hidden_dim in hidden_channels[:-1]:
+            layers.append(torch.nn.Linear(in_dim, hidden_dim, bias=bias))
+            if norm_layer is not None:
+                layers.append(norm_layer(hidden_dim))
+            layers.append(activation_layer(**params))
+            layers.append(torch.nn.Dropout(dropout, **params))
+            in_dim = hidden_dim
+
+        layers.append(torch.nn.Linear(in_dim, hidden_channels[-1], bias=bias))
+        layers.append(torch.nn.Dropout(dropout, **params))
+
+        super().__init__(*layers)
+
+
+class Conv2dNormActivation(ConvNormActivation):
+    """
+    Configurable block used for Convolution2d-Normalization-Activation blocks.
+
+    Args:
+        in_channels (int): Number of channels in the input image
+        out_channels (int): Number of channels produced by the Convolution-Normalization-Activation block
+        kernel_size: (int, optional): Size of the convolving kernel. Default: 3
+        stride (int, optional): Stride of the convolution. Default: 1
+        padding (int, tuple or str, optional): Padding added to all four sides of the input. Default: None, in which case it will be calculated as ``padding = (kernel_size - 1) // 2 * dilation``
+        groups (int, optional): Number of blocked connections from input channels to output channels. Default: 1
+        norm_layer (Callable[..., torch.nn.Module], optional): Norm layer that will be stacked on top of the convolution layer. If ``None`` this layer won't be used. Default: ``torch.nn.BatchNorm2d``
+        activation_layer (Callable[..., torch.nn.Module], optional): Activation function which will be stacked on top of the normalization layer (if not None), otherwise on top of the conv layer. If ``None`` this layer won't be used. Default: ``torch.nn.ReLU``
+        dilation (int): Spacing between kernel elements. Default: 1
+        inplace (bool): Parameter for the activation layer, which can optionally do the operation in-place. Default ``True``
+        bias (bool, optional): Whether to use bias in the convolution layer. By default, biases are included if ``norm_layer is None``.
+
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, Tuple[int, int]] = 3,
+        stride: Union[int, Tuple[int, int]] = 1,
+        padding: Optional[Union[int, Tuple[int, int], str]] = None,
+        groups: int = 1,
+        norm_layer: Optional[Callable[..., torch.nn.Module]] = torch.nn.BatchNorm2d,
+        activation_layer: Optional[Callable[..., torch.nn.Module]] = torch.nn.ReLU,
+        dilation: Union[int, Tuple[int, int]] = 1,
+        inplace: Optional[bool] = True,
+        bias: Optional[bool] = None,
+    ) -> None:
+
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            groups,
+            norm_layer,
+            activation_layer,
+            dilation,
+            inplace,
+            bias,
+            torch.nn.Conv2d,
+        )
+
+
+
+class ConvStemConfig(NamedTuple):
+    out_channels: int
+    kernel_size: int
+    stride: int
+    norm_layer: Callable[..., nn.Module] = nn.BatchNorm2d
+    activation_layer: Callable[..., nn.Module] = nn.ReLU
+
+
+class MLPBlock(MLP):
+    """Transformer MLP block."""
+
+    _version = 2
+
+    def __init__(self, in_dim: int, mlp_dim: int, dropout: float):
+        super().__init__(in_dim, [mlp_dim, in_dim], activation_layer=nn.GELU, inplace=None, dropout=dropout)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.normal_(m.bias, std=1e-6)
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        version = local_metadata.get("version", None)
+
+        if version is None or version < 2:
+            # Replacing legacy MLPBlock with MLP. See https://github.com/pytorch/vision/pull/6053
+            for i in range(2):
+                for type in ["weight", "bias"]:
+                    old_key = f"{prefix}linear_{i+1}.{type}"
+                    new_key = f"{prefix}{3*i}.{type}"
+                    if old_key in state_dict:
+                        state_dict[new_key] = state_dict.pop(old_key)
+
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+
+
+class EncoderBlock(nn.Module):
+    """Transformer encoder block."""
+
+    def __init__(
+        self,
+        num_heads: int,
+        hidden_dim: int,
+        mlp_dim: int,
+        dropout: float,
+        attention_dropout: float,
+        norm_layer: Callable[..., torch.nn.Module] = partial(nn.LayerNorm, eps=1e-6),
+    ):
         super().__init__()
-        self.img_size = (img_size, img_size)
+        self.num_heads = num_heads
+
+        # Attention block
+        self.ln_1 = norm_layer(hidden_dim)
+        self.self_attention = nn.MultiheadAttention(hidden_dim, num_heads, dropout=attention_dropout, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
+
+        # MLP block
+        self.ln_2 = norm_layer(hidden_dim)
+        self.mlp = MLPBlock(hidden_dim, mlp_dim, dropout)
+
+    def forward(self, input: torch.Tensor):
+        torch._assert(input.dim() == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
+        x = self.ln_1(input)
+        x, _ = self.self_attention(x, x, x, need_weights=False)
+        x = self.dropout(x)
+        x = x + input
+
+        y = self.ln_2(x)
+        y = self.mlp(y)
+        return x + y
+
+
+class Encoder(nn.Module):
+    """Transformer Model Encoder for sequence to sequence translation."""
+
+    def __init__(
+        self,
+        seq_length: int,
+        num_layers: int,
+        num_heads: int,
+        hidden_dim: int,
+        mlp_dim: int,
+        dropout: float,
+        attention_dropout: float,
+        norm_layer: Callable[..., torch.nn.Module] = partial(nn.LayerNorm, eps=1e-6),
+    ):
+        super().__init__()
+        # Note that batch_size is on the first dim because
+        # we have batch_first=True in nn.MultiAttention() by default
+        self.pos_embedding = nn.Parameter(torch.empty(1, seq_length, hidden_dim).normal_(std=0.02))  # from BERT
+        self.dropout = nn.Dropout(dropout)
+        layers: OrderedDict[str, nn.Module] = OrderedDict()
+        for i in range(num_layers):
+            layers[f"encoder_layer_{i}"] = EncoderBlock(
+                num_heads,
+                hidden_dim,
+                mlp_dim,
+                dropout,
+                attention_dropout,
+                norm_layer,
+            )
+        self.layers = nn.Sequential(layers)
+        self.ln = norm_layer(hidden_dim)
+
+    def forward(self, input: torch.Tensor):
+        torch._assert(input.dim() == 3, f"Expected (batch_size, seq_length, hidden_dim) got {input.shape}")
+        input = input + self.pos_embedding
+        return self.ln(self.layers(self.dropout(input)))
+
+
+class VisionTransformer(nn.Module):
+    """Vision Transformer as per https://arxiv.org/abs/2010.11929."""
+
+    def __init__(
+        self,
+        image_size: int = 25,
+        patch_size: int = 5,
+        num_layers: int = 4,
+        num_heads: int = 2,
+        hidden_dim: int = 120,
+        mlp_dim: int = 250,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.05,
+        representation_size: Optional[int] = None,
+        norm_layer: Callable[..., torch.nn.Module] = partial(nn.LayerNorm, eps=1e-6),
+        conv_stem_configs: Optional[List[ConvStemConfig]] = None,
+    ):
+        super().__init__()
+        torch._assert(image_size % patch_size == 0, "Input shape indivisible by patch size!")
+        self.image_size = image_size
         self.patch_size = patch_size
-        self.in_chans = in_chans
-        self.out_dim = out_dim
-        self.num_features = self.embed_dim = embed_dim
-        self.num_blocks = num_blocks 
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        self.hidden_dim = hidden_dim
+        self.mlp_dim = mlp_dim
+        self.attention_dropout = attention_dropout
+        self.dropout = dropout
+        self.representation_size = representation_size
+        self.norm_layer = norm_layer
 
-        self.patch_embed = PatchEmbed(img_size=img_size, patch_size=self.patch_size, in_chans=self.in_chans, embed_dim=embed_dim)
-        num_patches = self.patch_embed.num_patches
+        if conv_stem_configs is not None:
+            # As per https://arxiv.org/abs/2106.14881
+            seq_proj = nn.Sequential()
+            prev_channels = 1
+            for i, conv_stem_layer_config in enumerate(conv_stem_configs):
+                seq_proj.add_module(
+                    f"conv_bn_relu_{i}",
+                    Conv2dNormActivation(
+                        in_channels=prev_channels,
+                        out_channels=conv_stem_layer_config.out_channels,
+                        kernel_size=conv_stem_layer_config.kernel_size,
+                        stride=conv_stem_layer_config.stride,
+                        norm_layer=conv_stem_layer_config.norm_layer,
+                        activation_layer=conv_stem_layer_config.activation_layer,
+                    ),
+                )
+                prev_channels = conv_stem_layer_config.out_channels
+            seq_proj.add_module(
+                "conv_last", nn.Conv2d(in_channels=prev_channels, out_channels=hidden_dim, kernel_size=1)
+            )
+            self.conv_proj: nn.Module = seq_proj
+        else:
+            self.conv_proj = nn.Conv2d(
+                in_channels=1, out_channels=hidden_dim, kernel_size=patch_size, stride=patch_size
+            )
 
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
-        self.pos_drop = nn.Dropout(p=drop_rate)
+        seq_length = (image_size // patch_size) ** 2
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
+        # Add a class token
+        self.class_token = nn.Parameter(torch.zeros(1, 1, hidden_dim))
+        seq_length += 1
 
-        self.h = img_size[0] // self.patch_size[0]
-        self.w = img_size[1] // self.patch_size[1]
+        self.encoder = Encoder(
+            seq_length,
+            num_layers,
+            num_heads,
+            hidden_dim,
+            mlp_dim,
+            dropout,
+            attention_dropout,
+            norm_layer,
+        )
+        self.seq_length = seq_length
 
-        self.blocks = nn.ModuleList([
-            Block(dim=embed_dim, mlp_ratio=mlp_ratio, drop=drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
-            num_blocks=self.num_blocks, sparsity_threshold=sparsity_threshold, hard_thresholding_fraction=hard_thresholding_fraction) 
-        for i in range(depth)])
+          
+        self.output_1 = nn.Linear(hidden_dim, 1)
+        self.output_2 = nn.Linear(hidden_dim, 1)
 
-        self.norm = norm_layer(embed_dim)
+        if isinstance(self.conv_proj, nn.Conv2d):
+            # Init the patchify stem
+            fan_in = self.conv_proj.in_channels * self.conv_proj.kernel_size[0] * self.conv_proj.kernel_size[1]
+            nn.init.trunc_normal_(self.conv_proj.weight, std=math.sqrt(1 / fan_in))
+            if self.conv_proj.bias is not None:
+                nn.init.zeros_(self.conv_proj.bias)
+        elif self.conv_proj.conv_last is not None and isinstance(self.conv_proj.conv_last, nn.Conv2d):
+            # Init the last 1x1 conv of the conv stem
+            nn.init.normal_(
+                self.conv_proj.conv_last.weight, mean=0.0, std=math.sqrt(2.0 / self.conv_proj.conv_last.out_channels)
+            )
+            if self.conv_proj.conv_last.bias is not None:
+                nn.init.zeros_(self.conv_proj.conv_last.bias)
 
-        self.head_1 = nn.Linear(in_features = embed_dim*self.patch_size[0]*self.patch_size[1], out_features = 1)
-        self.head_2 = nn.Linear(embed_dim*self.patch_size[0]*self.patch_size[1], 1)
 
-        trunc_normal_(self.pos_embed, std=.02)
-        self.apply(self._init_weights)
+    def _process_input(self, x: torch.Tensor) -> torch.Tensor:
+        n, c, h, w = x.shape
+        p = self.patch_size
+        torch._assert(h == self.image_size, f"Wrong image height! Expected {self.image_size} but got {h}!")
+        torch._assert(w == self.image_size, f"Wrong image width! Expected {self.image_size} but got {w}!")
+        n_h = h // p
+        n_w = w // p
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
+        # (n, c, h, w) -> (n, hidden_dim, n_h, n_w)
+        x = self.conv_proj(x)
+        # (n, hidden_dim, n_h, n_w) -> (n, hidden_dim, (n_h * n_w))
+        x = x.reshape(n, self.hidden_dim, n_h * n_w)
 
-    @torch.jit.ignore
-    def no_weight_decay(self):
-        return {'pos_embed', 'cls_token'}
-
-    def forward_features(self, x):
-        B = x.shape[0]
-        x = self.patch_embed(x)
-        x = x + self.pos_embed
-        x = self.pos_drop(x)
-        
-        x = x.reshape(B, self.h, self.w, self.embed_dim)
-        for blk in self.blocks:
-            x = blk(x)
+        # (n, hidden_dim, (n_h * n_w)) -> (n, (n_h * n_w), hidden_dim)
+        # The self attention layer expects inputs in the format (N, S, E)
+        # where S is the source sequence length, N is the batch size, E is the
+        # embedding dimension
+        x = x.permute(0, 2, 1)
 
         return x
 
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = torch.flatten(x, start_dim=1)
-        out_1 = self.head_1(x)
-        out_2 = F.sigmoid(self.head_2(x))
+    def forward(self, x: torch.Tensor):
+        # Reshape and permute the input tensor
+        x = self._process_input(x)
+        n = x.shape[0]
+
+        # Expand the class token to the full batch
+        batch_class_token = self.class_token.expand(n, -1, -1)
+        x = torch.cat([batch_class_token, x], dim=1)
+
+        x = self.encoder(x)
+
+        # Classifier "token" as used by standard language architectures
+        x = x[:, 0]
+
+        out_1 = self.output_1(x)
+        out_2 = nn.functional.sigmoid(self.output_2(x))
         output = torch.cat([out_1, out_2], dim = 1)
 
         return output
 
 
-class PatchEmbed(nn.Module):
-    def __init__(self, img_size=(224, 224), patch_size=(16, 16), in_chans=3, embed_dim=768):
-        super().__init__()
-        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.num_patches = num_patches
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        assert H == self.img_size[0] and W == self.img_size[1], f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = self.proj(x).flatten(2).transpose(1, 2)
-        return x
-
-
 if __name__ == "__main__":
-    net = AFNONet()
+    net = VisionTransformer()
     sample = torch.randn(2, 1, 25, 25)
     result = net(sample)
     print(result.shape)
