@@ -17,7 +17,7 @@ grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
 range <- 1.2
 smooth <- 1.05
-brown <- rmaxstab(n = 50, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
+brown <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
 schlather <- rmaxstab(n = 1, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
 
 max(schlather)
@@ -25,6 +25,10 @@ max(brown)
 
 image(x, x, array(brown[1,], dim = c(length,length)), col = terrain.colors(64))
 image(x, x, array(schlather[1,], dim = c(length,length)), col = terrain.colors(64))
+
+dis <- distance(grid)
+dis_unique <- unique(dis)
+dis[dis == dis_unique[10]]
 
 #madogram
 mado <- fmadogram(brown, grid)

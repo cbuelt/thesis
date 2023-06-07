@@ -39,6 +39,14 @@ def train_val_loader(data_path, batch_size = 64, batch_size_val = 64):
     val_loader = DataLoader(val_dataset, batch_size = batch_size_val, shuffle = False)
     return train_loader, val_loader, train_dataset, val_dataset
 
+def test_loader(data_path, batch_size = 750):
+    test_dataset = CombinedSpatialField(
+        data_path = data_path,
+        var = "test"
+    )
+    test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False)
+    return test_loader, test_dataset
+
 
 class CombinedSpatialField(Dataset):
     """Dataset for combined test/train data and combined schlather/brown

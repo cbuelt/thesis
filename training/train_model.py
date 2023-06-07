@@ -19,7 +19,7 @@ def retransform(params):
 
 def retransform2(params):
     result = np.zeros(shape=params.shape)
-    #result[:, 0] = params[:, 0] * (3-0.1) + 0.1
+    #result[:, 0] = -np.log(params[:,0])
     result[:, 0] = np.exp(params[:, 0])
     result[:, 1] = params[:, 1] * 2
     return result
@@ -168,9 +168,9 @@ def run_model(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "schlather"]
-    exp = "exp_3"
+    exp = "exp_3_1"
     epochs = 40
-    batch_size = 64
+    batch_size = 32
     n = 10
 
     # Set device
@@ -178,5 +178,6 @@ if __name__ == "__main__":
 
     model = "schlather"
     trained_net = run_model(exp, epochs, batch_size, device, retransform2, n_val = 1000)
+    torch.save(trained_net.state_dict(), f"data/{exp}/checkpoints/cnn.pt")
 
 
