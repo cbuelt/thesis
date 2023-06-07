@@ -7,7 +7,7 @@ library(gridExtra)
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- detectCores() - 1
+no_cores <- 20#detectCores() - 1
 
 simulate <- function(params){
   length <- 25
@@ -19,7 +19,7 @@ simulate <- function(params){
   if (model == "brown"){
     data <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
   }else{
-    data <- rmaxstab(1, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
+    data <- rmaxstab(1, coord = grid, cov.mod = model, nugget = 0, range = range, smooth = smooth)
   }
   return(data)
 }
@@ -29,17 +29,17 @@ simulate <- function(params){
 #
 
 # Set parameters
-n <- 5
-exp <- "exp_3"
+n <- 2500
+exp <- "exp_3_1"
 
 # Simulate parameters
 smooth <- runif(n = n, min = 0, max = 2)
-range <- rexp(n = n, rate = 0.25)
+range <- runif(n = n, min = 0, max = 3)
 train_params <- cbind(range, smooth)
 
-for (model in c("brown", "schlather")){
+for (model in c("whitmat")){
   #Save params
-  save(train_params, file = paste0("../data/",exp,"/data/", model, "_params.RData"))
+  save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
   #Create train set
   # Initiate cluster
   cl <- makeCluster(no_cores)
@@ -50,5 +50,34 @@ for (model in c("brown", "schlather")){
   stopCluster(cl)
   
   #Save train_data
-  save(train_data, file = paste0("../data/",exp,"/data/", model, "_data.RData"))
+  save(train_data, file = paste0("../data/",exp,"/data/", model, "_train_data.RData"))
 }
+
+
+# Create test dataset
+# Set parameters
+n_each <- 30
+n <- 25
+exp <- "exp_3_1"
+
+# Simulate parameters
+smooth <- rep(runif(n = n, min = 0, max = 2), each = n_each)
+range <- rep(runif(n = n, min = 0, max = 3), each = n_each)
+test_params <- cbind(range, smooth)
+
+for (model in c("whitmat")){
+  #Save params
+  save(test_params, file = paste0("../data/",exp,"/data/", model, "_test_params.RData"))
+  #Create train set
+  # Initiate cluster
+  cl <- makeCluster(no_cores)
+  clusterExport(cl,c('simulate', 'model'))
+  clusterEvalQ(cl, library(SpatialExtremes))
+  
+  test_data <- parApply(cl, test_params, MARGIN = 1, FUN = simulate)
+  stopCluster(cl)
+  
+  #Save train_data
+  save(test_data, file = paste0("../data/",exp,"/data/", model, "_test_data.RData"))
+}
+
