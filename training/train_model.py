@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(os.getcwd())
 from utils.dataloader import get_data_loader
-from networks.cnn import CNN, CNN_pool
+from networks.cnn import CNN, CNN_pool, CNN_var
 from networks.tests import VisionTransformer
 
 
@@ -123,7 +123,7 @@ def run_model(
         data_path=path, model=model, batch_size=n_val, var="val"
     )    
     # Define model
-    net = CNN()
+    net = CNN_var()
     net.to(device)
 
     # Specify parameters and functions
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = "brown"
+    model = "schlather"
     trained_net = run_model(model, exp, epochs, batch_size, device, retransform2)
     #trained_net = run_experiment(n, model, exp, epochs, batch_size, device, transform=retransform2)
     #torch.save(trained_net.state_dict(), f"data/{exp}/checkpoints/cnn_{model}.pt")

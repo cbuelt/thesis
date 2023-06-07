@@ -47,7 +47,7 @@ print(fit_2$fitted.values)
 
 
 
-model <- "schlather"
+model <- "brown"
 exp <- "exp_2"
 load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
 load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
