@@ -5,7 +5,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from utils.dataloader import get_data_loader
+from utils.dataloader import get_data_loader, train_val_loader
 from networks.cnn import CNN, CNN_pool, CNN_var
 from networks.tests import VisionTransformer
 
@@ -34,7 +34,7 @@ def run_experiment(
     device,
     transform,
     learning_rate: float = 0.001,
-    n_val: int = 400,
+    n_val: int = 1000,
 ):
     # Set path
     path = f"data/{exp}/data/"
@@ -46,7 +46,7 @@ def run_experiment(
         data_path=path, model=model, batch_size=n_val, var="val"
     )    
     # Define model
-    net = CNN()
+    net = CNN_pool()
     net.to(device)
 
     # Specify parameters and functions
@@ -104,7 +104,6 @@ def run_experiment(
 
 
 def run_model(
-    model: str,
     exp: str,
     epochs: int,
     batch_size: int,
@@ -116,14 +115,10 @@ def run_model(
     # Set path
     path = f"data/{exp}/data/"
     # Get dataloaders
-    train_dataloader, _ = get_data_loader(
-        data_path=path, model=model, batch_size=batch_size, var="train"
-    )
-    val_dataloader, _ = get_data_loader(
-        data_path=path, model=model, batch_size=n_val, var="val"
-    )    
+    train_dataloader, val_dataloader, _, _ = train_val_loader(data_path=path, batch_size=batch_size,
+                                                              batch_size_val=n_val)
     # Define model
-    net = CNN_var()
+    net = CNN_pool()
     net.to(device)
 
     # Specify parameters and functions
@@ -135,7 +130,7 @@ def run_model(
     for epoch in range(epochs):
         running_loss = 0
         for sample in train_dataloader:
-            img, param = sample
+            img, param,_ = sample
             img = img.to(device)
             param = param.to(device)
 
@@ -152,7 +147,7 @@ def run_model(
 
         # Calculate val loss
         for sample in val_dataloader:
-            img, param = sample
+            img, param,_ = sample
             break
         img = img.to(device)
         param = param.to(device)
@@ -173,16 +168,15 @@ def run_model(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "schlather"]
-    exp = "exp_2"
-    epochs = 32
-    batch_size = 40
+    exp = "exp_3"
+    epochs = 40
+    batch_size = 64
     n = 10
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = "schlather"
-    trained_net = run_model(model, exp, epochs, batch_size, device, retransform2)
-    #trained_net = run_experiment(n, model, exp, epochs, batch_size, device, transform=retransform2)
-    #torch.save(trained_net.state_dict(), f"data/{exp}/checkpoints/cnn_{model}.pt")
-    #print("Model saved")
+    trained_net = run_model(exp, epochs, batch_size, device, retransform2, n_val = 1000)
+
+
