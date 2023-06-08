@@ -11,7 +11,7 @@ no_cores <- 20#detectCores() - 1
 
 simulate <- function(params){
   length <- 25
-  x <- seq(0,1, length = length)
+  x <- seq(0,20, length = length)
   grid <- expand.grid(x,x)
   grid <- array(unlist(grid), dim = c(length**2,2))
   range <- params[["range"]]
@@ -30,14 +30,14 @@ simulate <- function(params){
 
 # Set parameters
 n <- 2500
-exp <- "exp_3_1"
+exp <- "exp_3"
 
 # Simulate parameters
 smooth <- runif(n = n, min = 0, max = 2)
-range <- runif(n = n, min = 0, max = 3)
+range <- runif(n = n, min = 0, max = 5)
 train_params <- cbind(range, smooth)
 
-for (model in c("whitmat")){
+for (model in c("brown")){
   #Save params
   save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
   #Create train set
@@ -58,14 +58,14 @@ for (model in c("whitmat")){
 # Set parameters
 n_each <- 30
 n <- 25
-exp <- "exp_3_1"
+exp <- "exp_3"
 
 # Simulate parameters
 smooth <- rep(runif(n = n, min = 0, max = 2), each = n_each)
-range <- rep(runif(n = n, min = 0, max = 3), each = n_each)
+range <- rep(runif(n = n, min = 0, max = 5), each = n_each)
 test_params <- cbind(range, smooth)
 
-for (model in c("whitmat")){
+for (model in c("brown")){
   #Save params
   save(test_params, file = paste0("../data/",exp,"/data/", model, "_test_params.RData"))
   #Create train set
