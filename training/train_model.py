@@ -10,16 +10,10 @@ from networks.cnn import CNN, CNN_pool, CNN_var
 from networks.tests import VisionTransformer
 
 
+
 def retransform(params):
     result = np.zeros(shape=params.shape)
-    result[:, 0] = np.exp(params[:, 0])
-    result[:, 1] = (2 * np.exp(params[:, 1])) / (1 + np.exp(params[:, 1]))
-    return result
-
-
-def retransform2(params):
-    result = np.zeros(shape=params.shape)
-    #result[:, 0] = -np.log(params[:,0])
+    #result[:, 0] = -(1/0.25)*np.log(params[:,0])
     result[:, 0] = np.exp(params[:, 0])
     result[:, 1] = params[:, 1] * 2
     return result
@@ -105,6 +99,7 @@ def run_experiment(
 
 def run_model(
     exp: str,
+    model: str, 
     epochs: int,
     batch_size: int,
     device,
@@ -115,10 +110,10 @@ def run_model(
     # Set path
     path = f"data/{exp}/data/"
     # Get dataloaders
-    train_dataloader, val_dataloader, _, _ = train_val_loader(data_path=path, batch_size=batch_size,
+    train_dataloader, val_dataloader, _, _ = train_val_loader(data_path=path, model = model, batch_size=batch_size,
                                                               batch_size_val=n_val)
     # Define model
-    net = CNN_pool()
+    net = VisionTransformer()
     net.to(device)
 
     # Specify parameters and functions
@@ -130,7 +125,7 @@ def run_model(
     for epoch in range(epochs):
         running_loss = 0
         for sample in train_dataloader:
-            img, param,_ = sample
+            img, param = sample
             img = img.to(device)
             param = param.to(device)
 
@@ -147,7 +142,7 @@ def run_model(
 
         # Calculate val loss
         for sample in val_dataloader:
-            img, param,_ = sample
+            img, param = sample
             break
         img = img.to(device)
         param = param.to(device)
@@ -168,16 +163,16 @@ def run_model(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "schlather"]
-    exp = "exp_3_1"
+    exp = "exp_3"
     epochs = 40
-    batch_size = 32
+    batch_size = 64
     n = 10
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = "schlather"
-    trained_net = run_model(exp, epochs, batch_size, device, retransform2, n_val = 1000)
-    torch.save(trained_net.state_dict(), f"data/{exp}/checkpoints/cnn.pt")
+    model = "brown"
+    trained_net = run_model(exp, model, epochs, batch_size, device, retransform, n_val = 500)
+    torch.save(trained_net.state_dict(), f"data/{exp}/checkpoints/vision_{model}.pt")
 
 

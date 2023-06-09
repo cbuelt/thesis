@@ -87,7 +87,7 @@ class CNN_pool(Module):
         # Linear layers
         x = self.flatten(x)
         x = F.relu(self.linear_1(x))
-        output_1 = self.output_1(x)
+        output_1 = F.sigmoid(self.output_1(x))
         output_2 = F.sigmoid(self.output_2(x))
         output = torch.cat([output_1, output_2], dim = 1)
         return output
@@ -153,7 +153,7 @@ class CNN_var(Module):
 
 
 if __name__ == '__main__':
-    net = CNN_var()
+    net = CNN_pool()
     test = torch.rand(size=(1, 1, 25, 25))
     res = net(test)
     print(res.shape)

@@ -26,23 +26,26 @@ def get_data_loader(data_path, model, batch_size = 64, var = "train"):
     return dataloader, dataset
 
 
-def train_val_loader(data_path, batch_size = 64, batch_size_val = 64):
-    train_dataset = CombinedSpatialField(
+def train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
+    train_dataset = SpatialField(
         data_path=data_path,
-        var = "train"
+        var = "train",
+        model = model
     )  
-    val_dataset = CombinedSpatialField(
+    val_dataset = SpatialField(
         data_path=data_path,
-        var = "val"
+        var = "val",
+        model = model
     ) 
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
     val_loader = DataLoader(val_dataset, batch_size = batch_size_val, shuffle = False)
     return train_loader, val_loader, train_dataset, val_dataset
 
-def test_loader(data_path, batch_size = 750):
-    test_dataset = CombinedSpatialField(
+def test_loader(data_path, model, batch_size = 750):
+    test_dataset = SpatialField(
         data_path = data_path,
-        var = "test"
+        var = "test",
+        model = model
     )
     test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False)
     return test_loader, test_dataset
@@ -79,6 +82,7 @@ class CombinedSpatialField(Dataset):
         #img_std = img.std()
         #img = (img - img_mean)/img_std            
         param[0] = np.log(param[0])
+        #param[0] = np.exp(-0.25*param[0])
         param[1] = param[1]/2
 
         #Expand dimension of image
@@ -98,14 +102,12 @@ class SpatialField(Dataset):
         data_path : str,
         model : str,
         var: str,
-        transform : bool = True
     ):
         self.data_path = data_path
-        self.model = model
         self.var = var
-        self.transform = transform
-        self.img_data = load_data(data_path, model, var = var)
-        self.param_data = load_params(data_path, model, var = var)
+        self.model = model
+        self.img_data = np.load(self.data_path+self.model+"_"+self.var+"_data.npy")
+        self.param_data = np.load(self.data_path+self.model+"_"+self.var+"_params.npy")
         self.sample_size = len(self.param_data)
 
     def __len__(self):
@@ -115,16 +117,15 @@ class SpatialField(Dataset):
         img = self.img_data[idx,:,:]
         param = self.param_data[idx].astype("float32")
 
-        #Transform
-        if self.transform:        
-            if self.model =="brown":
-                img = np.log(img)    
-            else:
-                img_mean = img.mean()
-                img_std = img.std()
-                img = (img - img_mean)/img_std            
-            param[0] = np.log(param[0])
-            param[1] = param[1]/2
+        #Transform   
+        if self.model =="brown":
+            img = np.log(img)    
+        else:
+            img_mean = img.mean()
+            img_std = img.std()
+            img = (img - img_mean)/img_std            
+        param[0] = np.log(param[0])
+        param[1] = param[1]/2
 
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
@@ -134,7 +135,7 @@ class SpatialField(Dataset):
 if __name__ == '__main__':
     exp = "exp_3"
     data_path = f"data/{exp}/data/"
-    train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path)
+    train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
     print(len(train_loader))
     print(len(val_loader))
 
