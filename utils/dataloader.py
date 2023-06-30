@@ -1,6 +1,6 @@
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from utils.utils import load_data, load_params
+#from utils.utils import load_data, load_params
 from torch.utils.data import random_split
 
 
@@ -29,13 +29,14 @@ def get_data_loader(data_path, model, batch_size = 64, var = "train"):
 def train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
     train_dataset = SpatialField(
         data_path=data_path,
-        var = "train",
-        model = model
+        model = model,
+        var = "train"
+        
     )  
     val_dataset = SpatialField(
         data_path=data_path,
-        var = "val",
-        model = model
+        model = model,
+        var = "val"        
     ) 
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
     val_loader = DataLoader(val_dataset, batch_size = batch_size_val, shuffle = False)
@@ -44,8 +45,9 @@ def train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
 def test_loader(data_path, model, batch_size = 750):
     test_dataset = SpatialField(
         data_path = data_path,
-        var = "test",
-        model = model
+        model = model,
+        var = "test"
+        
     )
     test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False)
     return test_loader, test_dataset
@@ -77,12 +79,8 @@ class CombinedSpatialField(Dataset):
         model = self.param_data[idx,2]
 
         #Transform
-        img = np.log(img)    
-        #img_mean = img.mean()
-        #img_std = img.std()
-        #img = (img - img_mean)/img_std            
+        img = np.log(img)            
         param[0] = np.log(param[0])
-        #param[0] = np.exp(-0.25*param[0])
         param[1] = param[1]/2
 
         #Expand dimension of image
@@ -118,12 +116,9 @@ class SpatialField(Dataset):
         param = self.param_data[idx].astype("float32")
 
         #Transform   
-        if self.model =="brown":
-            img = np.log(img)    
-        else:
-            img_mean = img.mean()
-            img_std = img.std()
-            img = (img - img_mean)/img_std            
+        img_mean = img.mean()
+        img_std = img.std()
+        img = (img - img_mean)/img_std            
         param[0] = np.log(param[0])
         param[1] = param[1]/2
 
@@ -133,11 +128,12 @@ class SpatialField(Dataset):
 
 
 if __name__ == '__main__':
-    exp = "exp_3"
+    exp = "exp_3_1"
     data_path = f"data/{exp}/data/"
     train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
     print(len(train_loader))
     print(len(val_loader))
+
 
 
 
