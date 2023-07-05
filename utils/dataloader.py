@@ -1,7 +1,10 @@
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 #from utils.utils import load_data, load_params
-from torch.utils.data import random_split
+import torchvision.transforms as T
+from torchvision.transforms.functional import rotate
+import random
+import torch
 
 
 def get_data_loader(data_path, model, batch_size = 64, var = "train"):
@@ -124,15 +127,24 @@ class SpatialField(Dataset):
 
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
+
+        if self.var == "train":
+            #Rotation of image
+            img = torch.from_numpy(np.swapaxes(img, 0, 2))
+            angle = random.choice([0, 180])
+            img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
         return img, param
 
 
 if __name__ == '__main__':
-    exp = "exp_3_1"
+    exp = "exp_4"
     data_path = f"data/{exp}/data/"
     train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
-    print(len(train_loader))
-    print(len(val_loader))
+    for sample in val_loader:
+        img, param = sample
+        break
+    print(img.shape)
+
 
 
 
