@@ -109,7 +109,7 @@ class SpatialField(Dataset):
         self.model = model
         self.img_data = np.load(self.data_path+self.model+"_"+self.var+"_data.npy")
         self.param_data = np.load(self.data_path+self.model+"_"+self.var+"_params.npy")
-        self.sample_size = len(self.param_data)
+        self.sample_size = self.param_data.shape[0]
 
     def __len__(self):
         return self.sample_size
@@ -126,7 +126,8 @@ class SpatialField(Dataset):
         param[1] = param[1]/2
 
         #Expand dimension of image
-        img = np.expand_dims(img, axis = 0).astype("float32")
+        #img = np.expand_dims(img, axis = 0).astype("float32")
+        img = img.astype("float32")
 
         if self.var == "train":
             #Rotation of image
@@ -137,13 +138,14 @@ class SpatialField(Dataset):
 
 
 if __name__ == '__main__':
-    exp = "exp_4"
+    exp = "exp_4_1"
     data_path = f"data/{exp}/data/"
     train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
     for sample in val_loader:
         img, param = sample
         break
     print(img.shape)
+    print(val_dataset.__len__())
 
 
 
