@@ -38,11 +38,11 @@ sample_dim <- 2000
 triplets <- array(data = 0, dim = c(sample_dim, 3))
 index_comb <- array(data = 0, dim = c(3,sample_dim))
 for (i in 1:sample_dim){
-  idx <- sample(x = 25, size = 3, replace = FALSE)
+  idx <- sample(x = length**2, size = 3, replace = FALSE)
   index_comb[,i] <- idx
-  triplets[i,1] <- dist((grid[idx[1],]-grid[idx[2],]))
-  triplets[i,2] <- dist((grid[idx[1],]-grid[idx[3],]))
-  triplets[i,3] <- dist((grid[idx[2],]-grid[idx[3],]))
+  triplets[i,1] <- dist(rbind(grid[idx[1],],grid[idx[2],]))
+  triplets[i,2] <- dist(rbind(grid[idx[1],],grid[idx[3],]))
+  triplets[i,3] <- dist(rbind(grid[idx[2],],grid[idx[3],]))
 }
 
 

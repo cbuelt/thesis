@@ -10,7 +10,89 @@ library(dplyr)
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- detectCores() - 1
+no_cores <- detectCores() - 2
+
+length <- 25
+x <- seq(0,length, length = length)
+grid <- expand.grid(x,x)
+grid <- array(unlist(grid), dim = c(length**2,2))
+field <- rmaxstab(n = 50, coord = grid, cov.mod = "brown", range = 2, smooth = 1.6)
+
+#Input triplet and maxstab data and get coefficient
+pairwise_ext_coef <- function(i, j, data){
+  n <- dim(data)[1]
+  x_1 <-data[,i]
+  x_2 <-data[,j]
+  max <- apply(cbind(x_1,x_2), FUN = max, MARGIN = 1)
+  return(n/sum(1/max))
+}
+
+
+#Generate vector with saved distances and extreal coefficient 
+result <- array(data = NA, dim = c(choose(length**2, 2), 2))
+cnt <- 1
+for (i in 1:624){
+  for (j in (i+1):625){
+    h <- dist(rbind(grid[i,], grid[j,]))
+    coeff <- pairwise_ext_coef(i,j,field)
+    result[cnt,] <- c(h,coeff)
+    cnt <- cnt +1
+  }
+}
+
+agg <- aggregate(result[,2], list(round(result[,1],5)), FUN=mean)
+names(agg) <- c("h", "Coeff")
+
+#Plot extremal coefficient
+
+brown_ext_coeff <- function(h, range, smooth){
+  var <- (h/range)**smooth
+  coeff <- 2*pnorm(sqrt(var)/2)
+  return(coeff)
+}
+
+
+valid <- data.frame(cbind(agg[,1],brown_ext_coeff(agg[,1],2,1.6)))
+names(valid) <- c("h", "Coeff")
+
+
+plot(agg, ylim = c(0.5,2.5))
+lines(valid, col = "red")
+
+# Schlather Model
+field <- rmaxstab(n = 5, coord = grid, cov.mod = "powexp", nugget = 0, range = 1.5, smooth = 0.8)
+result <- array(data = NA, dim = c(choose(length**2, 2), 2))
+cnt <- 1
+for (i in 1:624){
+  for (j in (i+1):625){
+    h <- dist(rbind(grid[i,], grid[j,]))
+    coeff <- pairwise_ext_coef(i,j,field)
+    result[cnt,] <- c(h,coeff)
+    cnt <- cnt +1
+  }
+}
+
+agg <- aggregate(result[,2], list(round(result[,1],5)), FUN=mean)
+names(agg) <- c("h", "Coeff")
+
+#Plot extremal coefficient
+
+schlather_ext_coeff <- function(h, range, smooth){
+  corr <- exp(-(h/range)**smooth)
+  coeff <- 1+ sqrt((1-corr)/2)
+  return(coeff)
+}
+
+
+valid <- data.frame(cbind(agg[,1],schlather_ext_coeff(agg[,1],1.5,0.8)))
+names(valid) <- c("h", "Coeff")
+
+
+plot(agg, ylim = c(0.5,5))
+lines(valid, col = "red")
+
+
+
 
 length <- 25
 x <- seq(0,1, length = length)
