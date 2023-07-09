@@ -35,7 +35,7 @@ def run_model(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
     )
     # Define model
-    net = CNN_test(channels=5, dropout=0.05)
+    net = CNN_pool(channels=1)
     net.to(device)
 
     # Specify parameters and functions
@@ -94,9 +94,9 @@ def run_model(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "powexp"]
-    exp = "exp_4_1"
+    exp = "exp_4"
     epochs = 100
-    batch_size = 16
+    batch_size = 32
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

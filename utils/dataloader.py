@@ -126,19 +126,24 @@ class SpatialField(Dataset):
         param[1] = param[1]/2
 
         #Expand dimension of image
-        #img = np.expand_dims(img, axis = 0).astype("float32")
-        img = img.astype("float32")
+        img = np.expand_dims(img, axis = 0).astype("float32")
+        #img = img.astype("float32")
 
         if self.var == "train":
             #Rotation of image
             img = torch.from_numpy(np.swapaxes(img, 0, 2))
             angle = random.choice([0, 180])
             img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
+            # Vertical and horizontal flip
+            hflipper = T.RandomHorizontalFlip(p=0.3)
+            vflipper = T.RandomVerticalFlip(p=0.3)
+            img = hflipper(img)
+            img = vflipper(img)
         return img, param
 
 
 if __name__ == '__main__':
-    exp = "exp_4_1"
+    exp = "exp_4"
     data_path = f"data/{exp}/data/"
     train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
     for sample in val_loader:
