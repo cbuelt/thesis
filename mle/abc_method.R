@@ -33,6 +33,22 @@ field <- rmaxstab(n = n, coord = grid, cov.mod = "brown", range = 1, smoothness 
 #  triplets[i,3] <- dist((grid[idx[2],]-grid[idx[3],]))
 #}
 
+<<<<<<< HEAD
+=======
+#Approximate triplets with sampling
+sample_dim <- 2000
+triplets <- array(data = 0, dim = c(sample_dim, 3))
+index_comb <- array(data = 0, dim = c(3,sample_dim))
+for (i in 1:sample_dim){
+  idx <- sample(x = length**2, size = 3, replace = FALSE)
+  index_comb[,i] <- idx
+  triplets[i,1] <- dist(rbind(grid[idx[1],],grid[idx[2],]))
+  triplets[i,2] <- dist(rbind(grid[idx[1],],grid[idx[3],]))
+  triplets[i,3] <- dist(rbind(grid[idx[2],],grid[idx[3],]))
+}
+
+
+>>>>>>> b640c05eabb3a1a8730021b81e7f74edec77cfc6
 
 #Functions
 distance_function <- function(a,b){

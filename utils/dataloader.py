@@ -109,7 +109,7 @@ class SpatialField(Dataset):
         self.model = model
         self.img_data = np.load(self.data_path+self.model+"_"+self.var+"_data.npy")
         self.param_data = np.load(self.data_path+self.model+"_"+self.var+"_params.npy")
-        self.sample_size = len(self.param_data)
+        self.sample_size = self.param_data.shape[0]
 
     def __len__(self):
         return self.sample_size
@@ -127,12 +127,18 @@ class SpatialField(Dataset):
 
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
+        #img = img.astype("float32")
 
         if self.var == "train":
             #Rotation of image
             img = torch.from_numpy(np.swapaxes(img, 0, 2))
             angle = random.choice([0, 180])
             img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
+            # Vertical and horizontal flip
+            hflipper = T.RandomHorizontalFlip(p=0.3)
+            vflipper = T.RandomVerticalFlip(p=0.3)
+            img = hflipper(img)
+            img = vflipper(img)
         return img, param
 
 
@@ -144,6 +150,7 @@ if __name__ == '__main__':
         img, param = sample
         break
     print(img.shape)
+    print(val_dataset.__len__())
 
 
 

@@ -6,10 +6,9 @@ import sys
 
 sys.path.append(os.getcwd())
 from utils.dataloader import get_data_loader, train_val_loader
-from networks.cnn import CNN, CNN_pool, CNN_var
+from networks.cnn import CNN_pool, CNN_var, CNN_test
 from networks.tests import VisionTransformer
 from utils.network import Scheduler
-
 
 
 def retransform(params):
@@ -21,7 +20,7 @@ def retransform(params):
 
 def run_model(
     exp: str,
-    model: str, 
+    model: str,
     epochs: int,
     batch_size: int,
     device,
@@ -32,19 +31,24 @@ def run_model(
     # Set path
     path = f"data/{exp}/data/"
     # Get dataloaders
-    train_dataloader, val_dataloader, _, _ = train_val_loader(data_path=path, model = model, batch_size=batch_size,
-                                                              batch_size_val=n_val)
+    train_dataloader, val_dataloader, _, _ = train_val_loader(
+        data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
+    )
     # Define model
-    net = CNN_pool()
+    net = CNN_pool(channels=1)
     net.to(device)
 
     # Specify parameters and functions
     criterion = torch.nn.MSELoss()
     optimizer = optim.Adam(net.parameters(), lr=learning_rate)
 
-
-    #Initialize Scheduler
-    scheduler = Scheduler(path = f"data/{exp}/checkpoints/", name = f"{model}_cnn_pool", patience = 5, min_delta = 0)
+    # Initialize Scheduler
+    scheduler = Scheduler(
+        path=f"data/{exp}/checkpoints/",
+        name=f"{model}_cnn_pool",
+        patience=5,
+        min_delta=0,
+    )
     # Run experiment
     for epoch in range(epochs):
         running_loss = 0
@@ -74,8 +78,8 @@ def run_model(
         outputs = net(img)
         output_re = transform(outputs.cpu().detach().numpy())
         param_re = transform(param.cpu().detach().numpy())
-        res = output_re - param_re        
-        rmse_val = np.sqrt(np.mean(np.square(res), axis = 0))
+        res = output_re - param_re
+        rmse_val = np.sqrt(np.mean(np.square(res), axis=0))
         rmse_train = running_loss / len(train_dataloader)
 
         print(
@@ -98,6 +102,4 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
-        run_model(exp, model, epochs, batch_size, device, retransform, n_val = 500)
-
-
+        run_model(exp, model, epochs, batch_size, device, retransform, n_val=500)

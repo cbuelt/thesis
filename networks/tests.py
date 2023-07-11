@@ -310,10 +310,10 @@ class VisionTransformer(nn.Module):
         self,
         image_size: int = 25,
         patch_size: int = 5,
-        num_layers: int = 4,
-        num_heads: int = 2,
-        hidden_dim: int = 100,
-        mlp_dim: int = 150,
+        num_layers: int = 6,
+        num_heads: int = 5,
+        hidden_dim: int = 250,
+        mlp_dim: int = 400,
         dropout: float = 0.05,
         attention_dropout: float = 0.05,
         representation_size: Optional[int] = None,
@@ -354,7 +354,7 @@ class VisionTransformer(nn.Module):
             self.conv_proj: nn.Module = seq_proj
         else:
             self.conv_proj = nn.Conv2d(
-                in_channels=1, out_channels=hidden_dim, kernel_size=patch_size, stride=patch_size
+                in_channels=5, out_channels=hidden_dim, kernel_size=patch_size, stride=patch_size
             )
 
         seq_length = (image_size // patch_size) ** 2
@@ -438,7 +438,7 @@ class VisionTransformer(nn.Module):
 
 if __name__ == "__main__":
     net = VisionTransformer()
-    sample = torch.randn(2, 1, 25, 25)
+    sample = torch.randn(2, 5, 25, 25)
     result = net(sample)
     print(result.shape)
     print(torch.norm(result))
