@@ -25,7 +25,7 @@ def run_model(
     batch_size: int,
     device,
     transform,
-    learning_rate: float = 0.0007,
+    learning_rate: float = 0.0007, 
     n_val: int = 400,
 ):
     # Set path
