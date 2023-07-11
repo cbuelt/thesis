@@ -8,7 +8,7 @@ library(combinat)
 current_path = rstudioapi::getActiveDocumentContext()$path 
 setwd(dirname(current_path))
 #Get nodes
-no_cores <-10#detectCores() - 1
+no_cores <-20#detectCores() - 1
 
 
 n <- 1
@@ -33,6 +33,8 @@ field <- rmaxstab(n = n, coord = grid, cov.mod = "brown", range = 1, smoothness 
 #  triplets[i,3] <- dist((grid[idx[2],]-grid[idx[3],]))
 #}
 
+<<<<<<< HEAD
+=======
 #Approximate triplets with sampling
 sample_dim <- 2000
 triplets <- array(data = 0, dim = c(sample_dim, 3))
@@ -46,7 +48,9 @@ for (i in 1:sample_dim){
 }
 
 
+>>>>>>> b640c05eabb3a1a8730021b81e7f74edec77cfc6
 
+#Functions
 distance_function <- function(a,b){
   return(sum(abs(a-b)))
 }
@@ -58,12 +62,6 @@ triplet_distance <- function(v1,v2){
   return(min(dis))
 }
 
-#Compute matrix
-t <- dist_make(triplets, triplet_distance)
-#Clustering
-cluster <- hclust(t, method = "ward.D")
-memb <- cutree(cluster, k = 100)
-
 #Input triplet and maxstab data and get coefficient
 triplet_ext_coef <- function(idx, data){
   n <- dim(data)[1]
@@ -73,13 +71,6 @@ triplet_ext_coef <- function(idx, data){
   max <- apply(cbind(x_1,x_2,x_3), FUN = max, MARGIN = 1)
   return(n/sum(1/max))
 }
-
-#Calculate ext coeff
-ext_coeff <- apply(index_comb, MARGIN = 2, FUN = triplet_ext_coef, field)
-#Aggregate per cluster
-theta <- aggregate(ext_coeff, by = list(memb), FUN = mean)
-plot(theta)
-
 
 # Run actual sampling
 get_abc_sample <- function(params, n, grid, memb, theta){
@@ -96,6 +87,39 @@ get_abc_sample <- function(params, n, grid, memb, theta){
   
 }
 
+#Approximate triplets with sampling
+sample_dim <- 2500
+triplets <- array(data = 0, dim = c(sample_dim, 3))
+index_comb <- array(data = 0, dim = c(3,sample_dim))
+for (i in 1:sample_dim){
+  idx <- sample(x = length**2, size = 3, replace = FALSE)
+  index_comb[,i] <- idx
+  triplets[i,1] <- dist((grid[idx[1],]-grid[idx[2],]))
+  triplets[i,2] <- dist((grid[idx[1],]-grid[idx[3],]))
+  triplets[i,3] <- dist((grid[idx[2],]-grid[idx[3],]))
+}
+
+
+
+
+
+# Measure time
+t1 <- Sys.time()
+
+#Compute matrix
+t <- dist_make(triplets, triplet_distance)
+#Clustering
+cluster <- hclust(t, method = "ward.D")
+memb <- cutree(cluster, k = 100)
+
+
+#Calculate ext coeff
+ext_coeff <- apply(index_comb, MARGIN = 2, FUN = triplet_ext_coef, field)
+#Aggregate per cluster
+theta <- aggregate(ext_coeff, by = list(memb), FUN = mean)
+plot(theta)
+
+
 n_sim <- 1000
 n_sim_each <- 50
 smooth <- runif(n = n_sim, min = 0, max = 2)
@@ -107,7 +131,6 @@ cl <- makeCluster(no_cores)
 clusterExport(cl,c('get_abc_sample', 'triplet_ext_coef', 'index_comb', 'distance_function'))
 clusterEvalQ(cl, library(SpatialExtremes))
 
-t1 <- Sys.time()
 dist_est <- parApply(cl, test_params, MARGIN = 1, FUN = get_abc_sample, n_sim_each, grid, memb, theta)
 stopCluster(cl)
 result <- cbind(test_params, dist_est)
@@ -115,7 +138,7 @@ print(Sys.time()-t1)
 
 #Filter results
 q <- quantile(result[,"dist_est"], 0.02)
-result <- result[result[, "dist_est"] <= q, ]
+result <- result[result[, "dist_est"] <= q,]
 result
 colMeans(result)
 
