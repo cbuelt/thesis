@@ -20,7 +20,7 @@ for (i in 1:624){
     }else{
       weights[cnt] <- 0
     }
-    cnt <- cnt +1
+    cnt <- cnt + 1
   }
 }
 
@@ -111,7 +111,7 @@ res
 #
 ######## Run one-image fit
 #
-model <- "brown"
+model <- "powexp"
 exp <- "exp_2"
 load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
 load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
@@ -171,11 +171,20 @@ save(results, file = paste0("../data/exp_2/results/", model, "_single_image_fit_
 #
 ## Run single fit with choosing best likelihood
 #
-model <- "schlather"
-exp <- "exp_2"
-load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
-load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
-x <- seq(1,20, length = 25)
+model <- "powexp"
+exp <- "exp_4_1"
+load(paste0("../data/", exp,"/data/", model, "_test_data_outside.RData"))
+load(paste0("../data/", exp,"/data/", model, "_test_params_outside.RData"))
+
+# For fitting multiple images
+un <- unique(test_params, dim = 1)
+range <- rep(un[,1], each = 20)
+smooth <- rep(un[,2], each = 20)
+test_params <- cbind(range, smooth)
+
+
+length <- 25
+x <- seq(0,length, length = length**2)
 grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(625,2))
 n_param <- dim(test_params)[1]
@@ -184,7 +193,7 @@ weights <- array(data = NA, dim = choose(625,2))
 cnt <- 1
 for (i in 1:624){
   for (j in (i+1):625){
-    if (abs(i-j) <=3){
+    if (dist(grid[i,]-grid[j,]) <=5){
       weights[cnt] <- 1
     }else{
       weights[cnt] <- 0
@@ -207,7 +216,7 @@ run_start_values <- function(params, data, grid, weights, n_out){
                                 start = list("range" = params[i,1], "smooth" = params[i,2]), 
                                 weights = weights)
     }else{
-      mylist[[i]] <- fitmaxstab(data = data, coord = grid, method = "L-BFGS-B", cov.mod = "powexp",
+      mylist[[i]] <- fitmaxstab(data = data, coord = grid, method = "L-BFGS-B", cov.mod = model,
                                 start = list("nugget" = 0, "range" = params[i,1], "smooth" = params[i,2]), 
                                 weights = weights)
     }
@@ -226,12 +235,15 @@ run_start_values <- function(params, data, grid, weights, n_out){
 
 
 apply_mle <- function(i, data, params, grid, weights, n_sim = 10){
-  data_subset <- array(rep(data[,i], each = 3), dim = c(3, 625))
+  #data_subset <- array(rep(data[,i], each = 3), dim = c(3, 625))
+  #For multiple images
+  data_subset <- t(data[,(i*5-4):(i*5)])
+  
   true <- params[i,]
   
   # Simulate similar parameters
-  range_seq = c(0.1,3)
-  smooth_seq = c(0.5,1.8)
+  range_seq = c(0.5,3)
+  smooth_seq = c(0,1.5)
   
   # Simulate uniform range
   range <- runif(n_sim, min = range_seq[1], max = range_seq[2])
@@ -245,7 +257,6 @@ apply_mle <- function(i, data, params, grid, weights, n_sim = 10){
 }
 
 
-
 # Initiate cluster
 start.time <- Sys.time()
 cl <- makeCluster(no_cores)
@@ -254,7 +265,5 @@ clusterEvalQ(cl, library(SpatialExtremes))
 res <- parSapply(cl, seq(1, n_param), test_data, test_params, grid, weights, FUN = apply_mle)
 stopCluster(cl)
 results <- t(res)
-save(results, file = paste0("../data/exp_2/results/", model, "_single_image_fit_opt.RData"))
-end.time <- Sys.time()
-time.taken <- end.time - start.time
-print(time.taken)
+save(results, file = paste0("../data/",exp,"/results/", model, "_single_image_fit_opt.RData"))
+
