@@ -93,7 +93,7 @@ def run_model(
 
 if __name__ == "__main__":
     # Set model
-    models = ["brown", "powexp"]
+    models = ["brown", "powexp", "whitmat"]
     exp = "exp_4"
     epochs = 100
     batch_size = 32
