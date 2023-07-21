@@ -25,7 +25,7 @@ def run_model(
     batch_size: int,
     device,
     transform,
-    learning_rate: float = 0.0007,
+    learning_rate: float = 0.0007, 
     n_val: int = 400,
 ):
     # Set path
@@ -93,7 +93,7 @@ def run_model(
 
 if __name__ == "__main__":
     # Set model
-    models = ["brown", "powexp"]
+    models = ["brown", "powexp", "whitmat"]
     exp = "exp_4"
     epochs = 100
     batch_size = 32

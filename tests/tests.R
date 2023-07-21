@@ -16,7 +16,7 @@ length <- 25
 x <- seq(0,length, length = length)
 grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
-field <- rmaxstab(n = 50, coord = grid, cov.mod = "brown", range = 2, smooth = 1.6)
+field <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = 2, smooth = 1.6)
 
 #Input triplet and maxstab data and get coefficient
 pairwise_ext_coef <- function(i, j, data){
@@ -56,11 +56,11 @@ valid <- data.frame(cbind(agg[,1],brown_ext_coeff(agg[,1],2,1.6)))
 names(valid) <- c("h", "Coeff")
 
 
-plot(agg, ylim = c(0.5,2.5))
+plot(agg, ylim = c(0.5,4))
 lines(valid, col = "red")
 
 # Schlather Model
-field <- rmaxstab(n = 5, coord = grid, cov.mod = "powexp", nugget = 0, range = 1.5, smooth = 0.8)
+field <- rmaxstab(n = 50, coord = grid, cov.mod = "powexp", nugget = 0, range = 1.5, smooth = 0.8)
 result <- array(data = NA, dim = c(choose(length**2, 2), 2))
 cnt <- 1
 for (i in 1:624){
@@ -72,7 +72,7 @@ for (i in 1:624){
   }
 }
 
-agg <- aggregate(result[,2], list(round(result[,1],5)), FUN=mean)
+agg <- aggregate(result[,2], list(round(result[,1],3)), FUN=mean)
 names(agg) <- c("h", "Coeff")
 
 #Plot extremal coefficient
@@ -88,7 +88,7 @@ valid <- data.frame(cbind(agg[,1],schlather_ext_coeff(agg[,1],1.5,0.8)))
 names(valid) <- c("h", "Coeff")
 
 
-plot(agg, ylim = c(0.5,5))
+plot(agg, ylim = c(0.5,2))
 lines(valid, col = "red")
 
 

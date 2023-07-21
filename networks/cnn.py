@@ -20,7 +20,7 @@ class CNN_pool(Module):
         )
         self.conv_256 = Conv2d(
             in_channels=64, out_channels=128, kernel_size=(3, 3), padding="same"
-        )
+        )        
         self.conv_256_2 = Conv2d(
             in_channels=128, out_channels=128, kernel_size=(3, 3), padding="same"
         )
@@ -38,11 +38,11 @@ class CNN_pool(Module):
         x = F.relu(self.conv_input(x))
         x = F.relu(self.conv_64(x))
         x = self.pool(x)
-        x = F.relu(self.conv_128(x))
-        x = F.relu(self.conv_128_2(x))
+        x_res_in = F.relu(self.conv_128(x))
+        x = x_res_in+F.relu(self.conv_128_2(x_res_in))
         x = self.pool(x)
-        x = F.relu(self.conv_256(x))
-        x = F.relu(self.conv_256_2(x))
+        x_res_in = F.relu(self.conv_256(x))
+        x = F.relu(self.conv_256_2(x_res_in))
         x = self.pool(x)
 
         # Linear layers
@@ -164,8 +164,8 @@ class CNN_var(Module):
 
 
 if __name__ == "__main__":
-    net = CNN_test(channels=5)
-    test = torch.rand(size=(1, 5, 25, 25))
+    net = CNN_pool(channels=1)
+    test = torch.rand(size=(1, 1, 25, 25))
     res = net(test)
     print(res.shape)
 
