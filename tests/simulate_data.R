@@ -11,7 +11,7 @@ no_cores <- 25#detectCores() - 1
 
 simulate <- function(params){
   length <- 25
-  x <- seq(0,length, length = length)
+  x <- seq(0, length, length = length)
   grid <- expand.grid(x,x)
   grid <- array(unlist(grid), dim = c(length**2,2))
   range <- params[["range"]]
@@ -29,20 +29,16 @@ simulate <- function(params){
 #
 
 # Set parameters
-n <- 1000
-exp <- "exp_4_1"
+n <- 2500
+exp <- "exp_4"
 
 # Simulate parameters
 smooth <- runif(n = n, min = 0, max = 1.5)
 range <- runif(n = n, min = 0.5, max = 3)
 train_params <- cbind(range, smooth)
 
-#Generate 5 pairs of parameters for aggregating
-n_pair <- 5
-train_params <- cbind(rep(range, each = n_pair), rep(smooth, each = n_pair))
-colnames(train_params) <- c("range", "smooth")
 
-for (model in c("brown", "powexp")){
+for (model in c("whitmat")){
   #Save params
   save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
   #Create train set
@@ -61,9 +57,9 @@ for (model in c("brown", "powexp")){
 
 # Create test dataset
 # Set parameters
-n_each <- 20 * n_pair
+n_each <- 30
 n <- 25
-exp <- "exp_4_1"
+exp <- "exp_4"
 
 # Simulate parameters
 smooth <- rep(runif(n = n, min = 0, max = 1.5), each = n_each)
@@ -75,7 +71,7 @@ range <- rep(runif(n = n, min = 0.5, max = 3), each = n_each)
 #smooth <- rep(smooth, each = n_each)
 test_params <- cbind(range, smooth)
 
-for (model in c("brown", "powexp")){
+for (model in c("whitmat")){
   #Save params
   save(test_params, file = paste0("../data/",exp,"/data/", model, "_test_params.RData"))
   #Create train set
@@ -90,3 +86,4 @@ for (model in c("brown", "powexp")){
   #Save train_data
   save(test_data, file = paste0("../data/",exp,"/data/", model, "_test_data.RData"))
 }
+
