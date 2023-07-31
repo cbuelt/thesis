@@ -4,6 +4,8 @@ library(lattice)
 library(parallel)
 library(gridExtra)
 library(dplyr)
+library(interp)
+library(easyNCDF)
 
 
 
@@ -11,6 +13,40 @@ current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
 no_cores <- detectCores() - 2
+
+load("../data/exp_4/results/brown_abc_samples_interpolated_n1.RData")
+names(dim(result)) <- c("abc_samples", "variable", "test_sample")
+ArrayToNc(list(Range = result[,1,], Smoothness = result[,2,], Distance = result[,3,]),
+          "../data/exp_4/results/brown_abc_samples_interpolated_n1.nc")
+
+
+length <-25
+model <- "whitmat"
+x <- seq(0,length, length = length)
+grid <- expand.grid(x,x)
+grid <- array(unlist(grid), dim = c(length**2,2))
+field <- rmaxstab(n = 1, coord = grid, cov.mod = model, nugget = 0, range = 1.5, smooth = 1.2)
+
+length_sample <- 6
+field_transformed <- array(field, dim = c(length, length))
+
+field_small <- bilinear.grid(x=x, y = x, z = field_transformed, nx = length_sample, ny = length_sample)
+
+filled.contour(x, x, field_transformed, color.palette = terrain.colors, nlevels = 30)
+
+filled.contour(field_small, color.palette = terrain.colors, nlevel = 30)
+
+# Plot original 6x6 grid
+x <- seq(0,length, length = length_sample)
+grid <- expand.grid(x,x)
+grid <- array(unlist(grid), dim = c(length_sample**2,2))
+field <- rmaxstab(n = 1, coord = grid, cov.mod = model, nugget = 0, range = 1.5, smooth = 1.2)
+field_transformed <- array(field, dim = c(length_sample, length_sample))
+filled.contour(x, x, field_transformed, color.palette = terrain.colors, nlevel = 20)
+
+
+
+
 
 length <- 25
 x <- seq(0,length, length = length)

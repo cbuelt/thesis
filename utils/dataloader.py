@@ -57,11 +57,6 @@ def test_loader(data_path, model, batch_size = 750):
 
 
 class CombinedSpatialField(Dataset):
-    """Dataset for combined test/train data and combined schlather/brown
-
-    Args:
-        Dataset (_type_): _description_
-    """
     def __init__(
         self,
         data_path : str,

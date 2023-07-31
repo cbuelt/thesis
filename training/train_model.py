@@ -7,7 +7,6 @@ import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import get_data_loader, train_val_loader
 from networks.cnn import CNN_pool, CNN_var, CNN_test
-from networks.tests import VisionTransformer
 from utils.network import Scheduler
 
 
@@ -45,7 +44,7 @@ def run_model(
     # Initialize Scheduler
     scheduler = Scheduler(
         path=f"data/{exp}/checkpoints/",
-        name=f"{model}_cnn_pool",
+        name=f"combined_cnn_pool",
         patience=5,
         min_delta=0,
     )
@@ -102,4 +101,4 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
-        run_model(exp, model, epochs, batch_size, device, retransform, n_val=500)
+        run_model(exp, model, epochs, batch_size, device, retransform, n_val=1000)
