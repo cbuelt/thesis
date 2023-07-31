@@ -172,15 +172,15 @@ save(results, file = paste0("../data/exp_2/results/", model, "_single_image_fit_
 ## Run single fit with choosing best likelihood
 #
 model <- "powexp"
-exp <- "exp_4_1"
-load(paste0("../data/", exp,"/data/", model, "_test_data_outside.RData"))
-load(paste0("../data/", exp,"/data/", model, "_test_params_outside.RData"))
+exp <- "exp_4"
+load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
+load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
 
 # For fitting multiple images
-un <- unique(test_params, dim = 1)
-range <- rep(un[,1], each = 20)
-smooth <- rep(un[,2], each = 20)
-test_params <- cbind(range, smooth)
+#un <- unique(test_params, dim = 1)
+#range <- rep(un[,1], each = 20)
+#smooth <- rep(un[,2], each = 20)
+#test_params <- cbind(range, smooth)
 
 
 length <- 25
@@ -212,11 +212,11 @@ run_start_values <- function(params, data, grid, weights, n_out){
   #Run optimization 
   for (i in 1:n){
     if (model == "brown"){
-      mylist[[i]] <- fitmaxstab(data = data, coord = grid, method = "L-BFGS-B", cov.mod = "brown",
+      mylist[[i]] <- fitmaxstab(data = data, coord = grid, cov.mod = "brown", method = "L-BFGS-B",
                                 start = list("range" = params[i,1], "smooth" = params[i,2]), 
                                 weights = weights)
     }else{
-      mylist[[i]] <- fitmaxstab(data = data, coord = grid, method = "L-BFGS-B", cov.mod = model,
+      mylist[[i]] <- fitmaxstab(data = data, coord = grid, cov.mod = model, method = "L-BFGS-B",
                                 start = list("nugget" = 0, "range" = params[i,1], "smooth" = params[i,2]), 
                                 weights = weights)
     }
@@ -235,9 +235,9 @@ run_start_values <- function(params, data, grid, weights, n_out){
 
 
 apply_mle <- function(i, data, params, grid, weights, n_sim = 10){
-  #data_subset <- array(rep(data[,i], each = 3), dim = c(3, 625))
+  data_subset <- array(rep(data[,i], each = 3), dim = c(3, 625))
   #For multiple images
-  data_subset <- t(data[,(i*5-4):(i*5)])
+  #data_subset <- t(data[,(i*5-4):(i*5)])
   
   true <- params[i,]
   
