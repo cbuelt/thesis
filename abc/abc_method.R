@@ -3,6 +3,8 @@ library(parallel)
 library(gridExtra)
 library(usedist)
 library(combinat)
+library(interp)
+
 
 
 current_path = rstudioapi::getActiveDocumentContext()$path 
@@ -56,7 +58,10 @@ get_data <- function(i, type = "full"){
   data <- test_data[,i]
   if(type != "full"){
     #If interpolation
-    break
+    data_transformed <- array(data, dim = c(length, length))
+    field_small <- bilinear.grid(x = x, y = x, z = data_transformed, nx = downsample_size, ny = downsample_size)
+    data_small <- array(field_small$z, dim = c(1, downsample_size**2))
+    return(data_small)
   }else{
     result <- array(data, dim = c(1, length(data)))
     return(result)
@@ -131,13 +136,13 @@ run_abc_sampling <- function(data, grid, cluster_res, model, n_sim,
 }
 
 abc_wrapper <- function(index, grid, cluster_res, model, n_sim,
-                        n_cores = 20, n_sim_each = 50, q_filter = 0.02){
+                        n_cores = 20, n_sim_each = 50, q_filter = 0.02, interp = "full"){
   # Measure time
   t1 <- Sys.time()
-  data <- get_data(index)
+  data <- get_data(index, interp)
   result <- run_abc_sampling(data = data, grid = grid, cluster_res = cluster_res, model = model,
                              n_sim = n_sim, n_cores = n_cores, n_sim_each = n_sim_each, q_filter = q_filter)
-  print(paste0("Total time: ", Sys.time()-t1))
+  print(paste0("Total time for sample  ",index," : ", Sys.time()-t1))
   return(result)
 }
 
@@ -152,19 +157,31 @@ length <- 25
 x <- seq(0,length, length = length)
 grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
-# Calculate distance matrix
-cluster_res <- get_clusters(grid = grid, n_stations = length**2, method = "Sampling", approx_dim = 5000)
+
+#Downsampling
+downsample_size <- 6
+x_small <- seq(0,length, length = downsample_size)
+grid_small <- expand.grid(x_small,x_small)
+grid <- array(unlist(grid_small), dim = c(downsample_size**2,2))
 
 #Load data
 load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
 load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
 
+#Measure time
+start_time <- Sys.time()
+
+# Calculate distance matrix
+cluster_res <- get_clusters(grid = grid, n_stations = dim(grid)[1], method = "full")
+
+
 #Run simulations
 index <- seq(1, 750, 30)
-result <- sapply(X = index, FUN = abc_wrapper, simplify = "array", grid, cluster_res, model, 10000)
+result <- sapply(X = index, FUN = abc_wrapper, simplify = "array", grid, cluster_res, model, 10000, interp = "interpolate", n_sim_each = 10)
 #Save results
-save(result, file = paste0("../data/",exp,"/results/", model, "_abc_samples.RData"))
-result
+save(result, file = paste0("../data/",exp,"/results/", model, "_abc_samples_interpolated_n1.RData"))
+print(dim(result))
+print(Sys.time()-start_time)
 
 
 
