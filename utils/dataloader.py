@@ -1,6 +1,6 @@
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-#from utils.utils import load_data, load_params
+from utils.utils import transform_parameters
 import torchvision.transforms as T
 from torchvision.transforms.functional import rotate
 import random
@@ -29,7 +29,7 @@ def get_data_loader(data_path, model, batch_size = 64, var = "train"):
     return dataloader, dataset
 
 
-def train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
+def get_train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
     train_dataset = SpatialField(
         data_path=data_path,
         model = model,
@@ -45,7 +45,7 @@ def train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
     val_loader = DataLoader(val_dataset, batch_size = batch_size_val, shuffle = False)
     return train_loader, val_loader, train_dataset, val_dataset
 
-def test_loader(data_path, model, batch_size = 750):
+def get_test_loader(data_path, model, batch_size = 750):
     test_dataset = SpatialField(
         data_path = data_path,
         model = model,
@@ -116,9 +116,8 @@ class SpatialField(Dataset):
         #Transform   
         img_mean = img.mean()
         img_std = img.std()
-        img = (img - img_mean)/img_std            
-        param[0] = np.log(param[0])
-        param[1] = param[1]/2
+        img = (img - img_mean)/img_std     
+        param = transform_parameters(param)    
 
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
@@ -140,7 +139,7 @@ class SpatialField(Dataset):
 if __name__ == '__main__':
     exp = "exp_4"
     data_path = f"data/{exp}/data/"
-    train_loader, val_loader, train_dataset, val_dataset = train_val_loader(data_path=data_path, model = "brown")
+    train_loader, val_loader, train_dataset, val_dataset = get_train_val_loader(data_path=data_path, model = "brown")
     for sample in val_loader:
         img, param = sample
         break
