@@ -9,7 +9,7 @@ from utils.dataloader import  get_train_val_loader, get_test_loader
 from networks.cnn import CNN_pool, CNN_var, CNN_test
 from utils.network import Scheduler
 from utils.utils import retransform_parameters
-from utils.losses import IntervalScore, QuantileScore
+from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS
 
 
 
@@ -33,9 +33,9 @@ def train_model(
     net.to(device)
 
     # Specify parameters and functions
-    #criterion = torch.nn.MSELoss()
-    criterion = IntervalScore(alpha = 0.05)
-    optimizer = optim.Adam(net.parameters(), lr=learning_rate)
+    #criterion2 = torch.nn.MSELoss()
+    criterion = TruncatedNormalCRPS()
+    optimizer = optim.RMSprop(net.parameters(), lr=learning_rate)
 
     # Initialize Scheduler
     scheduler = Scheduler(
@@ -45,7 +45,7 @@ def train_model(
         min_delta=0,
     )
     # Run experiment
-    for epoch in range(epochs):
+    for epoch in range(1,epochs):
         train_loss = 0
         for sample in train_dataloader:
             img, param = sample
@@ -58,11 +58,12 @@ def train_model(
 
             # forward + backward + optimize
             outputs = net(img)
-            loss = criterion(param, outputs[0], outputs[1])
-            #loss = criterion(param, outputs)
-            loss.backward()
+            interval_loss = criterion(param, outputs[0], outputs[1])
+            #interval_loss = criterion2(param, outputs)
+            total_loss = interval_loss#sum([interval_loss, mse_loss])
+            total_loss.backward()
             optimizer.step()
-            train_loss += np.sqrt(loss.item())/len(train_dataloader)
+            train_loss += np.sqrt(total_loss.item())/len(train_dataloader)
 
         # Calculate val loss
         val_loss = 0
@@ -72,9 +73,10 @@ def train_model(
             param = param.to(device)
             net.eval()
             outputs = net(img)
-            loss = criterion(param, outputs[0], outputs[1])
-            #loss = criterion(param, outputs)
-            val_loss += np.sqrt(loss.item())/len(val_dataloader)
+            interval_loss = criterion(param, outputs[0], outputs[1])
+            #interval_loss = criterion2(param, outputs)
+            total_loss = interval_loss#sum([interval_loss, mse_loss])
+            val_loss += np.sqrt(total_loss.item())/len(val_dataloader)
         print(
             f"Epoch: {epoch} \t Training loss: {train_loss:.4f} \t Validation loss: {val_loss:.4f}"
         )
@@ -107,8 +109,8 @@ def predict(
     net.to(device)
 
     # Prepare arrays
-    train_results = np.zeros(shape = (2, train_size, 2))
-    test_results = np.zeros(shape = (2, test_size, 2))
+    train_results = np.zeros(shape = (3, train_size, 2))
+    test_results = np.zeros(shape = (3, test_size, 2))
 
     
     #Calculate training samples
@@ -123,8 +125,10 @@ def predict(
             #param_re = retransform_parameters(param.cpu().detach().numpy())
             lower = retransform_parameters(outputs[0].cpu().detach().numpy())
             upper = retransform_parameters(outputs[1].cpu().detach().numpy())
+            #mean = retransform_parameters(outputs[2].cpu().detach().numpy())
             train_results[0, (i*batch_size):((i+1)*batch_size),:] = lower
             train_results[1, (i*batch_size):((i+1)*batch_size),:] = upper
+            #train_results[2, (i*batch_size):((i+1)*batch_size),:] = mean
 
         # Save results
         np.save(file = f"data/{exp}/results/{net.name}_{model}_train.npy", arr = train_results)
@@ -140,8 +144,10 @@ def predict(
         #param_re = retransform_parameters(param.cpu().detach().numpy())
         lower = retransform_parameters(outputs[0].cpu().detach().numpy())
         upper = retransform_parameters(outputs[1].cpu().detach().numpy())
+        #mean = retransform_parameters(outputs[2].cpu().detach().numpy())
         test_results[0, (i*batch_size):((i+1)*batch_size),:] = lower
         test_results[1, (i*batch_size):((i+1)*batch_size),:] = upper
+        #test_results[2, (i*batch_size):((i+1)*batch_size),:] = mean
     np.save(file = f"data/{exp}/results/{net.name}_{model}_test.npy", arr = test_results)
     print(f"Saved results for model {model} and network {net.name}")
 
@@ -151,11 +157,11 @@ if __name__ == "__main__":
     models = ["brown", "powexp", "whitmat"]
     exp = "exp_5"
     epochs = 100
-    batch_size = 50
+    batch_size = 32
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
-        trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.005)
+        trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.001)
         predict(exp, model, trained_net, save_train = False)

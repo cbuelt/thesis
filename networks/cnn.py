@@ -61,7 +61,7 @@ class CNN_pool(Module):
 class CNN_test(Module):
     def __init__(self, dropout=0, channels=1):
         super().__init__()
-        self.name = "cnn_interval"
+        self.name = "cnn_crps_trunc"
         self.conv_input = Conv2d(
             in_channels=channels, out_channels=32, kernel_size=(3, 3), padding="same"
         )
@@ -89,6 +89,10 @@ class CNN_test(Module):
         self.output_r_2 = Linear(in_features=32, out_features=1)
         self.output_s_1 = Linear(in_features=32, out_features=1)
         self.output_s_2 = Linear(in_features=32, out_features=1)
+        self.output_m_1 = Linear(in_features=32, out_features=1)
+        self.output_m_2 = Linear(in_features=32, out_features=1)
+        self.output_mu = Linear(in_features=32, out_features=2)
+        self.output_sigma = Linear(in_features=32, out_features=2)
         self.dropout = Dropout(p=dropout)
 
     def forward(self, x):
@@ -109,14 +113,23 @@ class CNN_test(Module):
         x = self.dropout(x)
         x = F.relu(self.linear_2(x))
         x = self.dropout(x)
+        #Interval output
         output_r_1 = self.output_r_1(x)
         output_r_2 = output_r_1 + F.relu(self.output_r_2(x))
         output_s_1 = F.sigmoid(self.output_s_1(x))
         output_s_2 = output_s_1 + F.sigmoid(self.output_s_2(x))
+        output_lower = torch.cat([output_r_1, output_s_1], dim = 1)
+        output_upper = torch.cat([output_r_2, output_s_2], dim = 1)
 
-        output_1 = torch.cat([output_r_1, output_s_1], dim = 1)
-        output_2 = torch.cat([output_r_2, output_s_2], dim = 1)
-        return output_1, output_2
+        #Mean output
+        output_m_1 = self.output_m_1(x)
+        output_m_2 = F.sigmoid(self.output_m_2(x))
+        output_mean = torch.cat([output_m_1, output_m_2], dim = 1)
+
+        #CRPS normal output
+        output_mu = F.softplus(self.output_mu(x))
+        output_sigma = F.softplus(self.output_sigma(x))
+        return output_mu, output_sigma
 
 
 class CNN_var(Module):

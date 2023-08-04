@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from typing import Optional
 import warnings
+import numpy as np
 
 Tensor = torch.Tensor
 
@@ -119,14 +120,238 @@ class QuantileScore(nn.Module):
                 return torch.mean(quantile_score)
 
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+class NormalCRPS(nn.Module):
+    """Computes the continuous ranked probability score (CRPS) for a predictive normal distribution and corresponding observations.
 
-    q_upper = torch.rand(size=(3, 2)) + 1
-    q_lower = torch.rand(size=(3, 2))
-    target = torch.rand(size=(3, 2))
-    interval_score = IntervalScore(alpha=0.1)
-    res = interval_score(target, q_lower, q_upper)
+    Args:
+        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
+        mu (Tensor): Predicted mu of normal distribution. shape = `[batch_size, d0, .. dn]`.
+        sigma (Tensor): Predicted sigma of normal distribution. shape = `[batch_size, d0, .. dn]`.
+        reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
+            a Tensor with shape = `[batch_size]`.
+        reduction (str, optional): Specifies the reduction to apply to the output:
+            ``'mean'`` | ``'sum'``.
+    Raises:
+        ValueError: If sizes of target mu and sigma don't match.
+
+    Returns:
+        quantile_score: 1-D float `Tensor` with shape [batch_size] or Float if reduction = True
+
+    References:
+      - Gneiting, T. et al., 2005: Calibrated Probabilistic Forecasting Using Ensemble Model Output Statistics and Minimum CRPS Estimation. Mon. Wea. Rev., 133, 1098–1118
+    """
+
+    def __init__(
+        self,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, mu: Tensor, sigma: Tensor) -> Tensor:
+        if not (mu.size() == sigma.size() == observation.size()):
+            raise ValueError("Mismatching target and prediction shapes")
+        # Use absolute value of sigma
+        sigma = torch.abs(sigma)
+        loc = (observation - mu) / sigma
+        Phi = 0.5 * (1 + torch.special.erf(loc / np.sqrt(2.0)))
+        phi = 1 / (np.sqrt(2.0 * np.pi)) * torch.exp(-torch.pow(loc, 2) / 2.0)
+        crps = sigma * (loc * (2.0 * Phi - 1) + 2.0 * phi - 1 / np.sqrt(np.pi))
+        if not self.reduce:
+            return crps
+        else:
+            if self.reduction == "sum":
+                return torch.sum(crps)
+            else:
+                return torch.mean(crps)
+
+
+class TruncatedNormalCRPS(nn.Module):
+    """Computes the continuous ranked probability score (CRPS) for a predictive truncated (0,inf) normal distribution and corresponding observations.
+
+    Args:
+        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
+        mu (Tensor): Predicted mu of truncated normal distribution. shape = `[batch_size, d0, .. dn]`.
+        sigma (Tensor): Predicted sigma of truncated normal distribution. shape = `[batch_size, d0, .. dn]`.
+        reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
+            a Tensor with shape = `[batch_size]`.
+        reduction (str, optional): Specifies the reduction to apply to the output:
+            ``'mean'`` | ``'sum'``.
+    Raises:
+        ValueError: If sizes of target mu and sigma don't match.
+
+    Returns:
+        quantile_score: 1-D float `Tensor` with shape [batch_size] or Float if reduction = True
+
+    References:
+      - Gneiting, T., Thorarinsdottir, T. 2010: Probabilistic Forecasts of Wind Speed: Ensemble Model Output Statistics by using Heteroscedastic Censored Regression.
+        Journal of the Royal Statistical Society Series A: Statistics in Society, Volume 173, Issue 2, Pages 371–388
+    """
+
+    def __init__(
+        self,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, mu: Tensor, sigma: Tensor) -> Tensor:
+        if not (mu.size() == sigma.size() == observation.size()):
+            raise ValueError("Mismatching target and prediction shapes")
+        # Use absolute values
+        sigma = torch.abs(sigma)
+        mu = torch.abs(mu)
+        loc = (observation - mu) / sigma
+
+        # Calculate different terms
+        phi = 1 / (np.sqrt(2.0 * np.pi)) * torch.exp(-torch.pow(loc, 2) / 2.0)
+        Phi = 0.5 * (1 + torch.special.erf(loc / np.sqrt(2.0)))
+        Phi_ms = 0.5 * (1 + torch.special.erf(mu / sigma / np.sqrt(2.0)))
+        Phi_2ms = 0.5 * (1 + torch.special.erf(mu / sigma))
+
+        crps = (sigma / torch.pow(Phi_ms, 2)) * (
+            loc * Phi_ms * (2 * Phi + Phi_ms - 2)
+            + 2 * phi * Phi_ms
+            - (1 / np.sqrt(np.pi)) * Phi_2ms
+        )
+        if not self.reduce:
+            return crps
+        else:
+            if self.reduction == "sum":
+                return torch.sum(crps)
+            else:
+                return torch.mean(crps)
+
+
+class LogNormalCRPS(nn.Module):
+    """Computes the continuous ranked probability score (CRPS) for a predictive log-normal distribution and corresponding observations.
+
+    Args:
+        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
+        mu (Tensor): Predicted mu of log-normal distribution. shape = `[batch_size, d0, .. dn]`.
+        sigma (Tensor): Predicted sigma of log-normal distribution. shape = `[batch_size, d0, .. dn]`.
+        reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
+            a Tensor with shape = `[batch_size]`.
+        reduction (str, optional): Specifies the reduction to apply to the output:
+            ``'mean'`` | ``'sum'``.
+    Raises:
+        ValueError: If sizes of target mu and sigma don't match.
+
+    Returns:
+        quantile_score: 1-D float `Tensor` with shape [batch_size] or Float if reduction = True
+
+    References:
+      - Baran S, Lerch S (2015): Log-normal distribution based ensemble model output statistics models for probabilistic wind-speed forecasting. Q J R Meteorol Soc 141:2289–2299
+    """
+
+    def __init__(
+        self,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, mu: Tensor, sigma: Tensor) -> Tensor:
+        if not (mu.size() == sigma.size() == observation.size()):
+            raise ValueError("Mismatching target and prediction shapes")
+        # Use absolute values
+        sigma = torch.abs(sigma)
+
+        loc = (torch.log(observation) - mu) / sigma
+
+        # Calculate different terms
+        Phi = 0.5 * (1 + torch.special.erf(loc / np.sqrt(2.0)))
+        Phi_ls = 0.5 * (1 + torch.special.erf((loc - sigma) / np.sqrt(2.0)))
+        Phi_s = 0.5 * (1 + torch.special.erf(sigma / 2))
+
+        crps = observation * (2.0 * Phi - 1) - 2.0 * torch.exp(
+            mu + torch.pow(sigma, 2) / 2.0
+        ) * (Phi_ls + Phi_s - 1)
+
+        if not self.reduce:
+            return crps
+        else:
+            if self.reduction == "sum":
+                return torch.sum(crps)
+            else:
+                return torch.mean(crps)
+
+
+class GammaCRPS(nn.Module):
+    """Computes the continuous ranked probability score (CRPS) for a predictive gamma distribution and corresponding observations.
+
+    Args:
+        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
+        shape (Tensor): Predicted shape of gamma distribution. shape = `[batch_size, d0, .. dn]`.
+        rate (Tensor): Predicted rate of gamma distribution. shape = `[batch_size, d0, .. dn]`.
+        reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
+            a Tensor with shape = `[batch_size]`.
+        reduction (str, optional): Specifies the reduction to apply to the output:
+            ``'mean'`` | ``'sum'``.
+    Raises:
+        ValueError: If sizes of target mu and sigma don't match.
+
+    Returns:
+        quantile_score: 1-D float `Tensor` with shape [batch_size] or Float if reduction = True
+
+    References:
+      - Scheuerer, M., and D. Möller, 2015: Probabilistic wind speed forecasting on a grid based on ensemble model output statistics. Ann. Appl. Stat., 9, 1328–1349
+    """
+
+    def __init__(
+        self,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, shape: Tensor, rate: Tensor) -> Tensor:
+        if not (shape.size() == rate.size() == observation.size()):
+            raise ValueError("Mismatching target and prediction shapes")
+        # Use absolute values for observations scale and shape
+        observation = torch.abs(observation)
+        shape = torch.abs(shape)
+        rate = torch.abs(rate)
+
+        Phi = torch.special.gammainc(shape, torch.mul(rate, observation))
+        Phi_a1 = torch.special.gammainc((shape + 1), torch.mul(rate, observation))
+        z_1 = shape + 0.5
+        z_2 = torch.tensor(0.5)
+        beta = (
+            torch.exp(torch.special.gammaln(z_1))
+            * torch.exp(torch.special.gammaln(z_2))
+            / torch.exp(torch.special.gammaln(z_1 + z_2))
+        )
+
+        crps = (
+            observation * (2 * Phi - 1)
+            - (shape / rate) * (2 * Phi_a1 - 1)
+            - (shape / (rate * np.pi)) * beta
+        )
+
+        if not self.reduce:
+            return crps
+        else:
+            if self.reduction == "sum":
+                return torch.sum(crps)
+            else:
+                return torch.mean(crps)
+
+
+if __name__ == "__main__":
+    shape = torch.ones(size=(32, 2))*2
+    rate = torch.ones(size=(32, 2))*2
+    target = torch.tensor(np.random.gamma(shape = 2, scale = 0.5, size = (32,2)))
+    crps = GammaCRPS()
+    res = crps(target, shape, rate)
     print(res.shape)
     print(res)
     # plt.plot(prediction, res)
