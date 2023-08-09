@@ -283,67 +283,6 @@ class LogNormalCRPS(nn.Module):
                 return torch.mean(crps)
 
 
-class GammaCRPS(nn.Module):
-    """Computes the continuous ranked probability score (CRPS) for a predictive gamma distribution and corresponding observations.
-
-    Args:
-        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
-        shape (Tensor): Predicted shape of gamma distribution. shape = `[batch_size, d0, .. dn]`.
-        rate (Tensor): Predicted rate of gamma distribution. shape = `[batch_size, d0, .. dn]`.
-        reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
-            a Tensor with shape = `[batch_size]`.
-        reduction (str, optional): Specifies the reduction to apply to the output:
-            ``'mean'`` | ``'sum'``.
-    Raises:
-        ValueError: If sizes of target mu and sigma don't match.
-
-    Returns:
-        quantile_score: 1-D float `Tensor` with shape [batch_size] or Float if reduction = True
-
-    References:
-      - Scheuerer, M., and D. Möller, 2015: Probabilistic wind speed forecasting on a grid based on ensemble model output statistics. Ann. Appl. Stat., 9, 1328–1349
-    """
-
-    def __init__(
-        self,
-        reduce: Optional[bool] = True,
-        reduction: Optional[str] = "mean",
-    ) -> None:
-        super().__init__()
-        self.reduce = reduce
-        self.reduction = reduction
-
-    def forward(self, observation: Tensor, shape: Tensor, rate: Tensor) -> Tensor:
-        if not (shape.size() == rate.size() == observation.size()):
-            raise ValueError("Mismatching target and prediction shapes")
-        # Use absolute values for observations scale and shape
-        observation = torch.abs(observation)
-        shape = torch.abs(shape)
-        rate = torch.abs(rate)
-
-        Phi = torch.special.gammainc(shape, torch.mul(rate, observation))
-        Phi_a1 = torch.special.gammainc((shape + 1), torch.mul(rate, observation))
-        z_1 = shape + 0.5
-        z_2 = torch.tensor(0.5)
-        beta = (
-            torch.exp(torch.special.gammaln(z_1))
-            * torch.exp(torch.special.gammaln(z_2))
-            / torch.exp(torch.special.gammaln(z_1 + z_2))
-        )
-
-        crps = (
-            observation * (2 * Phi - 1)
-            - (shape / rate) * (2 * Phi_a1 - 1)
-            - (shape / (rate * np.pi)) * beta
-        )
-
-        if not self.reduce:
-            return crps
-        else:
-            if self.reduction == "sum":
-                return torch.sum(crps)
-            else:
-                return torch.mean(crps)
 
 
 if __name__ == "__main__":

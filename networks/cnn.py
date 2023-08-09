@@ -91,8 +91,10 @@ class CNN_test(Module):
         self.output_s_2 = Linear(in_features=32, out_features=1)
         self.output_m_1 = Linear(in_features=32, out_features=1)
         self.output_m_2 = Linear(in_features=32, out_features=1)
-        self.output_mu = Linear(in_features=32, out_features=2)
-        self.output_sigma = Linear(in_features=32, out_features=2)
+        self.output_mu_1 = Linear(in_features=32, out_features=1)
+        self.output_mu_2 = Linear(in_features=32, out_features=1)
+        self.output_sigma_1 = Linear(in_features=32, out_features=1)
+        self.output_sigma_2 = Linear(in_features=32, out_features=1)
         self.dropout = Dropout(p=dropout)
 
     def forward(self, x):
@@ -127,9 +129,11 @@ class CNN_test(Module):
         output_mean = torch.cat([output_m_1, output_m_2], dim = 1)
 
         #CRPS normal output
-        output_mu = F.softplus(self.output_mu(x))
-        output_sigma = F.softplus(self.output_sigma(x))
-        return output_mu, output_sigma
+        output_mu_1 = F.softplus(self.output_mu_1(x))
+        output_mu_2 = F.sigmoid(self.output_mu_2(x))
+        output_sigma_1 = F.softplus(self.output_sigma_1(x)) + 0.001
+        output_sigma_2 = F.softlplus(self.output_sigma_2(x)) + 0.001
+        return torch.cat([output_mu_1, output_mu_2], dim = 1), torch.cat([output_sigma_1, output_sigma_2], dim = 1)
 
 
 class CNN_var(Module):

@@ -77,7 +77,7 @@ class CombinedSpatialField(Dataset):
         model = self.param_data[idx,2]
 
         #Transform
-        img = np.log(img)            
+        img = np.log(img)             
         param[0] = np.log(param[0])
         param[1] = param[1]/2
 
@@ -126,11 +126,11 @@ class SpatialField(Dataset):
         if self.var == "train":
             #Rotation of image
             img = torch.from_numpy(np.swapaxes(img, 0, 2))
-            angle = random.choice([0, 180])
+            angle = random.choice([0, 0, 180])
             img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
             # Vertical and horizontal flip
-            hflipper = T.RandomHorizontalFlip(p=0.3)
-            vflipper = T.RandomVerticalFlip(p=0.3)
+            hflipper = T.RandomHorizontalFlip(p=0.2)
+            vflipper = T.RandomVerticalFlip(p=0.2)
             img = hflipper(img)
             img = vflipper(img)
         return img, param
