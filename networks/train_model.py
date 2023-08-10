@@ -34,7 +34,7 @@ def train_model(
 
     # Specify parameters and functions
     #criterion2 = torch.nn.MSELoss()
-    criterion = TruncatedNormalCRPS()
+    criterion = IntervalScore(alpha = 0.1)
     optimizer = optim.RMSprop(net.parameters(), lr=learning_rate)
 
     # Initialize Scheduler
@@ -48,7 +48,7 @@ def train_model(
     for epoch in range(1,epochs):
         train_loss = 0
         for sample in train_dataloader:
-            img, param = sample
+            img, param, _ = sample
             img = img.to(device)
             param = param.to(device)
 
@@ -68,7 +68,7 @@ def train_model(
         # Calculate val loss
         val_loss = 0
         for sample in val_dataloader:
-            img, param = sample
+            img, param, _ = sample
             img = img.to(device)
             param = param.to(device)
             net.eval()
@@ -93,6 +93,7 @@ def predict(
         save_train : bool = True,
         batch_size : int = 1000,
         batch_size_val: int = 1000,
+        batch_size_test: int = 500,
         train_size: int = 5000,
         test_size: int = 500
 ):
@@ -102,7 +103,7 @@ def predict(
     _ , _, train_dataset, val_dataset = get_train_val_loader(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=batch_size_val
     )
-    test_loader, _ = get_test_loader(data_path = path, model = model, batch_size = 500)
+    test_loader, _ = get_test_loader(data_path = path, model = model, batch_size = batch_size_test)
     train_loader = DataLoader(ConcatDataset([train_dataset, val_dataset]), batch_size = batch_size, shuffle = False)
 
     #Send model to device
@@ -133,7 +134,7 @@ def predict(
  
     #Calculate test samples
     for i, sample in enumerate(test_loader):
-        img, param = sample
+        img, param, m = sample
         img = img.to(device)
         param = param.to(device)
         net.eval()
@@ -143,23 +144,23 @@ def predict(
         lower = retransform_parameters(outputs[0].cpu().detach().numpy())
         upper = retransform_parameters(outputs[1].cpu().detach().numpy())
         #mean = retransform_parameters(outputs[2].cpu().detach().numpy())
-        test_results[0, (i*batch_size):((i+1)*batch_size),:] = lower
-        test_results[1, (i*batch_size):((i+1)*batch_size),:] = upper
-        #test_results[2, (i*batch_size):((i+1)*batch_size),:] = mean
+        test_results[0, (i*batch_size_test):((i+1)*batch_size_test),:] = lower
+        test_results[1, (i*batch_size_test):((i+1)*batch_size_test),:] = upper
+        test_results[2, (i*batch_size_test):((i+1)*batch_size_test),:] = torch.unsqueeze(m, dim = 1).cpu().detach().numpy()
     np.save(file = f"data/{exp}/results/{net.name}_{model}_test.npy", arr = test_results)
     print(f"Saved results for model {model} and network {net.name}")
 
 
 if __name__ == "__main__":
     # Set model
-    models = ["brown", "powexp", "whitmat"]
-    exp = "exp_5"
+    models = ["all"]#["brown", "powexp", "whitmat"]
+    exp = "exp_6"
     epochs = 100
-    batch_size = 32
+    batch_size = 64
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
-        trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.001)
-        predict(exp, model, trained_net, save_train = False)
+        trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.0007)
+        predict(exp, model, trained_net, save_train = False, test_size = 1500)

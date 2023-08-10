@@ -61,7 +61,7 @@ class CNN_pool(Module):
 class CNN_test(Module):
     def __init__(self, dropout=0, channels=1):
         super().__init__()
-        self.name = "cnn_crps_trunc"
+        self.name = "cnn_interval"
         self.conv_input = Conv2d(
             in_channels=channels, out_channels=32, kernel_size=(3, 3), padding="same"
         )
@@ -82,7 +82,8 @@ class CNN_test(Module):
         )
         self.pool = MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
         self.flatten = Flatten()
-        self.linear_1 = Linear(in_features=1152, out_features=16)
+        #self.linear_1 = Linear(in_features=1152, out_features=16)
+        self.linear_1 = Linear(in_features = 128, out_features = 16)
         self.linear_2 = Linear(in_features=16, out_features=32)
         self.output = Linear(in_features=32, out_features=2)
         self.output_r_1 = Linear(in_features=32, out_features=1)
@@ -119,7 +120,7 @@ class CNN_test(Module):
         output_r_1 = self.output_r_1(x)
         output_r_2 = output_r_1 + F.relu(self.output_r_2(x))
         output_s_1 = F.sigmoid(self.output_s_1(x))
-        output_s_2 = output_s_1 + F.sigmoid(self.output_s_2(x))
+        output_s_2 = output_s_1 + F.sigmoid(self.output_s_2(x)) * (1-output_s_1)
         output_lower = torch.cat([output_r_1, output_s_1], dim = 1)
         output_upper = torch.cat([output_r_2, output_s_2], dim = 1)
 
@@ -132,8 +133,8 @@ class CNN_test(Module):
         output_mu_1 = F.softplus(self.output_mu_1(x))
         output_mu_2 = F.sigmoid(self.output_mu_2(x))
         output_sigma_1 = F.softplus(self.output_sigma_1(x)) + 0.001
-        output_sigma_2 = F.softlplus(self.output_sigma_2(x)) + 0.001
-        return torch.cat([output_mu_1, output_mu_2], dim = 1), torch.cat([output_sigma_1, output_sigma_2], dim = 1)
+        output_sigma_2 = F.softplus(self.output_sigma_2(x)) + 0.001
+        return output_lower, output_upper
 
 
 class CNN_var(Module):
@@ -189,8 +190,8 @@ class CNN_var(Module):
 
 
 if __name__ == "__main__":
-    net = CNN_pool(channels=1)
-    test = torch.rand(size=(1, 1, 25, 25))
+    net = CNN_test(channels=1)
+    test = torch.rand(size=(1, 1, 10, 10))
     res = net(test)
     print(res.shape)
 

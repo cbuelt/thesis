@@ -15,15 +15,15 @@ setwd(dirname(current_path))
 no_cores <- detectCores() - 2
 
 
-load("../data/exp_5/results/powexp_abc_samples_interpolated_n1.RData")
+load("../data/exp_5/results/powexp_abc_samples_interpolated_6.RData")
 names(dim(result)) <- c("abc_samples", "variable", "test_sample")
 ArrayToNc(list(Range = result[,1,], Smoothness = result[,2,], Distance = result[,3,]),
-          "../data/exp_5/results/powexp_abc_samples_interpolated_n1.nc")
+          "../data/exp_5/results/powexp_abc_samples_interpolated_6.nc")
 
 
 #Load data
 exp <- "exp_5"
-model <- "whitmat"
+model <- "powexp"
 type <- "test"
 load(paste0("../data/", exp,"/data/", model, "_", type, "_data.RData"))
 load(paste0("../data/", exp,"/data/", model, "_", type, "_params.RData"))
@@ -34,7 +34,7 @@ grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
 
 #Downsampling
-downsample_size <- 5
+downsample_size <- 10
 x_small <- seq(0,length, length = downsample_size)
 grid_small <- expand.grid(x_small,x_small)
 grid <- array(unlist(grid_small), dim = c(downsample_size**2,2))
@@ -63,7 +63,7 @@ test_data <- sapply(seq(1,n_params), get_data, type = "interp")
 i <- 30
 
 
-filled.contour(x_small, x_small, array(res[,i], dim = c(downsample_size, downsample_size)), color.palette = terrain.colors, nlevel = 30)
+filled.contour(x_small, x_small, array(test_data[,i], dim = c(downsample_size, downsample_size)), color.palette = terrain.colors, nlevel = 30)
 
 #Save
 exp <- "exp_6"

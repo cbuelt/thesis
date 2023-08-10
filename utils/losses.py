@@ -289,7 +289,7 @@ if __name__ == "__main__":
     shape = torch.ones(size=(32, 2))*2
     rate = torch.ones(size=(32, 2))*2
     target = torch.tensor(np.random.gamma(shape = 2, scale = 0.5, size = (32,2)))
-    crps = GammaCRPS()
+    crps = TruncatedNormalCRPS()
     res = crps(target, shape, rate)
     print(res.shape)
     print(res)

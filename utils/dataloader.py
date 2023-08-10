@@ -7,38 +7,16 @@ import random
 import torch
 
 
-def get_data_loader(data_path, model, batch_size = 64, var = "train"):
-    """Dataloader for SpatialField
-
-    Args:
-        data_path (_type_): _description_
-        model (_type_): _description_
-        batch_size (int, optional): _description_. Defaults to 64.
-        var (str, optional): _description_. Defaults to "train".
-
-    Returns:
-        _type_: _description_
-    """
-    shuffle = False if var == "test" else True
-    dataset = SpatialField(
-        data_path=data_path,
-        model = model,
-        var = var
-    )    
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
-    return dataloader, dataset
-
-
 def get_train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
-    train_dataset = SpatialField(
+    train_dataset = CombinedSpatialField(
         data_path=data_path,
-        model = model,
+        #model = model,
         var = "train"
         
     )  
-    val_dataset = SpatialField(
+    val_dataset = CombinedSpatialField(
         data_path=data_path,
-        model = model,
+        #model = model,
         var = "val"        
     ) 
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
@@ -46,9 +24,9 @@ def get_train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64)
     return train_loader, val_loader, train_dataset, val_dataset
 
 def get_test_loader(data_path, model, batch_size = 750):
-    test_dataset = SpatialField(
+    test_dataset = CombinedSpatialField(
         data_path = data_path,
-        model = model,
+        #model = model,
         var = "test"
         
     )
@@ -76,13 +54,26 @@ class CombinedSpatialField(Dataset):
         param = self.param_data[idx,0:2].astype("float32")
         model = self.param_data[idx,2]
 
-        #Transform
-        img = np.log(img)             
-        param[0] = np.log(param[0])
-        param[1] = param[1]/2
+        #Transform   
+        img_mean = img.mean()
+        img_std = img.std()
+        img = (img - img_mean)/img_std     
+        param = transform_parameters(param)    
 
         #Expand dimension of image
         img = np.expand_dims(img, axis = 0).astype("float32")
+        #img = img.astype("float32")
+
+        if self.var == "train":
+            #Rotation of image
+            img = torch.from_numpy(np.swapaxes(img, 0, 2))
+            angle = random.choice([0, 0, 180, 0])
+            img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
+            # Vertical and horizontal flip
+            hflipper = T.RandomHorizontalFlip(p=0.2)
+            vflipper = T.RandomVerticalFlip(p=0.2)
+            img = hflipper(img)
+            img = vflipper(img)
         return img, param, model
 
 
