@@ -12,9 +12,9 @@ class IntervalScore(nn.Module):
     `loss = (q_upper - q_lower) + max((q_lower - target), 0) + max((target - q_upper), 0)`
 
     Args:
-        target (Tensor): Ground truth values. shape = `[batch_size, d0, .. dn]`
-        q_lower (Tensor): The predicted left/lower quantile. shape = `[batch_size, d0, .. dn]`
-        q_upper (Tensor): The predicted right/upper quantile. shape = `[batch_size, d0, .. dn]`
+        target (Tensor): Ground truth values. shape = [batch_size, d0, .. dn].
+        q_lower (Tensor): The predicted left/lower quantile. shape = [batch_size, d0, .. dn].
+        q_upper (Tensor): The predicted right/upper quantile. shape = [batch_size, d0, .. dn].
         alpha (Float): Alpha level for (1-alpha) interval
         reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
             a Tensor with shape = `[batch_size]`.
@@ -74,9 +74,9 @@ class QuantileScore(nn.Module):
     `loss = maximum(alpha * (y_true - y_pred), (alpha - 1) * (y_true - y_pred))`
 
     Args:
-        target (Tensor): Ground truth values. shape = `[batch_size, d0, .. dn]`
-        prediction (Tensor): The predicted values. shape = `[batch_size, d0, .. dn]`
-        alpha: Float in [0, 1] or a tensor taking values in [0, 1] and shape = `[d0,..., dn]`.
+        target (Tensor): Ground truth values. Shape = [batch_size, d0, .. dn].
+        prediction (Tensor): The predicted values. Shape = [batch_size, d0, .. dn].
+        alpha: Float in [0, 1] or a tensor taking values in [0, 1] and Shape = [d0,..., dn].
         reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
             a Tensor with shape = `[batch_size]`.
         reduction (str, optional): Specifies the reduction to apply to the output:
@@ -124,9 +124,9 @@ class NormalCRPS(nn.Module):
     """Computes the continuous ranked probability score (CRPS) for a predictive normal distribution and corresponding observations.
 
     Args:
-        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
-        mu (Tensor): Predicted mu of normal distribution. shape = `[batch_size, d0, .. dn]`.
-        sigma (Tensor): Predicted sigma of normal distribution. shape = `[batch_size, d0, .. dn]`.
+        observation (Tensor): Observed outcome. Shape = [batch_size, d0, .. dn].
+        mu (Tensor): Predicted mu of normal distribution. Shape = [batch_size, d0, .. dn].
+        sigma (Tensor): Predicted sigma of normal distribution. Shape = [batch_size, d0, .. dn].
         reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
             a Tensor with shape = `[batch_size]`.
         reduction (str, optional): Specifies the reduction to apply to the output:
@@ -172,9 +172,9 @@ class TruncatedNormalCRPS(nn.Module):
     """Computes the continuous ranked probability score (CRPS) for a predictive truncated (0,inf) normal distribution and corresponding observations.
 
     Args:
-        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
-        mu (Tensor): Predicted mu of truncated normal distribution. shape = `[batch_size, d0, .. dn]`.
-        sigma (Tensor): Predicted sigma of truncated normal distribution. shape = `[batch_size, d0, .. dn]`.
+        observation (Tensor): Observed outcome. Shape = [batch_size, d0, .. dn].
+        mu (Tensor): Predicted mu of truncated normal distribution. Shape = [batch_size, d0, .. dn].
+        sigma (Tensor): Predicted sigma of truncated normal distribution. Shape = [batch_size, d0, .. dn].
         reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
             a Tensor with shape = `[batch_size]`.
         reduction (str, optional): Specifies the reduction to apply to the output:
@@ -231,9 +231,9 @@ class LogNormalCRPS(nn.Module):
     """Computes the continuous ranked probability score (CRPS) for a predictive log-normal distribution and corresponding observations.
 
     Args:
-        observation (Tensor): Observed outcome. shape = `[batch_size, d0, .. dn]`.
-        mu (Tensor): Predicted mu of log-normal distribution. shape = `[batch_size, d0, .. dn]`.
-        sigma (Tensor): Predicted sigma of log-normal distribution. shape = `[batch_size, d0, .. dn]`.
+        observation (Tensor): Observed outcome. Shape = [batch_size, d0, .. dn].
+        mu (Tensor): Predicted mu of log-normal distribution. Shape = [batch_size, d0, .. dn].
+        sigma (Tensor): Predicted sigma of log-normal distribution. Shape = [batch_size, d0, .. dn].
         reduce (bool, optional): Boolean value indicating whether reducing the loss to one value or to
             a Tensor with shape = `[batch_size]`.
         reduction (str, optional): Specifies the reduction to apply to the output:
@@ -283,14 +283,70 @@ class LogNormalCRPS(nn.Module):
                 return torch.mean(crps)
 
 
+class EnergyScore(nn.Module):
+    """_summary_
+
+    Args:
+        observation (Tensor): Observed outcome. Shape = [batch_size, d0, .. dn]
+        prediction (Tensor): Samples from predictive distribution. Shape = [batch_size, d0, .. dn, n_samples]
+    """
+
+    def __init__(
+        self,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, prediction: Tensor) -> Tensor:
+        # Check shapes
+        if not (observation.size()[0:-1] == prediction.size()[0:-1]):
+            raise ValueError("Mismatching target and prediction shapes")
+        # Define dimensions
+        n_samples = prediction.size()[-1]
+
+        # Calculate terms
+        es_12 = torch.sum(
+            torch.sqrt(
+                torch.clamp(
+                    torch.matmul(torch.transpose(observation, 1, 2), observation)
+                    + torch.pow(torch.linalg.norm(prediction, dim=1, keepdim=True), 2)
+                    - 2 * torch.matmul(torch.transpose(observation, 1, 2), prediction),
+                    min=1e-7,
+                    max=1e10,
+                )
+            ),
+            dim=(1, 2),
+        )
+        G = torch.matmul(torch.transpose(prediction, 1, 2), prediction)
+        d = torch.unsqueeze(torch.diagonal(G, dim1=1, dim2=2), dim=1)
+
+        es_22 = torch.sum(
+            torch.sqrt(
+                torch.clip(d + torch.transpose(d, 1, 2) - 2 * G, min=1e-7, max=1e10)
+            ),
+            dim=(1, 2),
+        )
+
+        scores = es_12 / (n_samples) - es_22 / (2 * n_samples * (n_samples - 1))
+
+        if not self.reduce:
+            return scores
+        else:
+            if self.reduction == "sum":
+                return torch.sum(scores)
+            else:
+                return torch.mean(scores)
 
 
 if __name__ == "__main__":
-    shape = torch.ones(size=(32, 2))*2
-    rate = torch.ones(size=(32, 2))*2
-    target = torch.tensor(np.random.gamma(shape = 2, scale = 0.5, size = (32,2)))
-    crps = TruncatedNormalCRPS()
-    res = crps(target, shape, rate)
-    print(res.shape)
-    print(res)
-    # plt.plot(prediction, res)
+    pred = torch.randn(size=(32, 2, 100))
+    obs = torch.randn(size=(32, 2, 1))
+
+    es = EnergyScore()
+    test = es(obs, pred)
+    print(test.shape)
+    print(test)
+

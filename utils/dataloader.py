@@ -8,15 +8,15 @@ import torch
 
 
 def get_train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64):
-    train_dataset = CombinedSpatialField(
+    train_dataset = SpatialField(
         data_path=data_path,
-        #model = model,
+        model = model,
         var = "train"
         
     )  
-    val_dataset = CombinedSpatialField(
+    val_dataset = SpatialField(
         data_path=data_path,
-        #model = model,
+        model = model,
         var = "val"        
     ) 
     train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
@@ -24,9 +24,9 @@ def get_train_val_loader(data_path, model, batch_size = 64, batch_size_val = 64)
     return train_loader, val_loader, train_dataset, val_dataset
 
 def get_test_loader(data_path, model, batch_size = 750):
-    test_dataset = CombinedSpatialField(
+    test_dataset = SpatialField(
         data_path = data_path,
-        #model = model,
+        model = model,
         var = "test"
         
     )

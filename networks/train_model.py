@@ -6,10 +6,10 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import  get_train_val_loader, get_test_loader
-from networks.cnn import CNN_pool, CNN_var, CNN_test
+from networks.cnn import CNN, CNN_var, CNN_test, CNN_ES
 from utils.network import Scheduler
 from utils.utils import retransform_parameters
-from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS
+from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS, EnergyScore
 
 
 
@@ -29,12 +29,12 @@ def train_model(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
     )
     # Define model
-    net = CNN_test()
+    net = CNN_ES(sample_dim=100)
     net.to(device)
 
     # Specify parameters and functions
     #criterion2 = torch.nn.MSELoss()
-    criterion = IntervalScore(alpha = 0.1)
+    criterion = EnergyScore()
     optimizer = optim.RMSprop(net.parameters(), lr=learning_rate)
 
     # Initialize Scheduler
@@ -48,7 +48,7 @@ def train_model(
     for epoch in range(1,epochs):
         train_loss = 0
         for sample in train_dataloader:
-            img, param, _ = sample
+            img, param = sample
             img = img.to(device)
             param = param.to(device)
 
@@ -58,25 +58,27 @@ def train_model(
 
             # forward + backward + optimize
             outputs = net(img)
-            interval_loss = criterion(param, outputs[0], outputs[1])
+            param = torch.unsqueeze(param, -1)
+            interval_loss = criterion(param, outputs)
             #mse_loss = criterion2(param[:,1:2], outputs[2], outputs[3])
             total_loss = interval_loss#sum([interval_loss, mse_loss])
             total_loss.backward()
             optimizer.step()
-            train_loss += np.sqrt(total_loss.item())/len(train_dataloader)
+            train_loss += total_loss.item()/len(train_dataloader)
 
         # Calculate val loss
         val_loss = 0
         for sample in val_dataloader:
-            img, param, _ = sample
+            img, param = sample
             img = img.to(device)
             param = param.to(device)
             net.eval()
             outputs = net(img)
-            interval_loss = criterion(param, outputs[0], outputs[1])
+            param = torch.unsqueeze(param, -1)
+            interval_loss = criterion(param, outputs)
             #mse_loss = criterion2(param[:,1:2], outputs[2], outputs[3])
             total_loss = interval_loss#sum([interval_loss, mse_loss])
-            val_loss += np.sqrt(total_loss.item())/len(val_dataloader)
+            val_loss += total_loss.item()/len(val_dataloader)
         print(
             f"Epoch: {epoch} \t Training loss: {train_loss:.4f} \t Validation loss: {val_loss:.4f}"
         )
@@ -153,14 +155,14 @@ def predict(
 
 if __name__ == "__main__":
     # Set model
-    models = ["all"]#["brown", "powexp", "whitmat"]
-    exp = "exp_6"
+    models = ["brown", "powexp", "whitmat"]
+    exp = "exp_5"
     epochs = 100
-    batch_size = 64
+    batch_size = 100
 
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
         trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.0007)
-        predict(exp, model, trained_net, save_train = False, test_size = 1500)
+        #predict(exp, model, trained_net, save_train = False, test_size = 1500)
