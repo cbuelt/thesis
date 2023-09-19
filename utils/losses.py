@@ -284,11 +284,11 @@ class LogNormalCRPS(nn.Module):
 
 
 class EnergyScore(nn.Module):
-    """_summary_
+    """Calculates the EnergyScore
 
     Args:
-        observation (Tensor): Observed outcome. Shape = [batch_size, d0, .. dn]
-        prediction (Tensor): Samples from predictive distribution. Shape = [batch_size, d0, .. dn, n_samples]
+        observation (Tensor): Observed outcome. Shape = [batch_size, d, 1]
+        prediction (Tensor): Samples from predictive distribution. Shape = [batch_size, d, n_samples]
     """
 
     def __init__(
@@ -330,22 +330,63 @@ class EnergyScore(nn.Module):
             dim=(1, 2),
         )
 
-        scores = es_12 / (n_samples) - es_22 / (2 * n_samples * (n_samples - 1))
+        score = es_12 / (n_samples) - es_22 / (2 * n_samples * (n_samples - 1))
 
         if not self.reduce:
-            return scores
+            return score
         else:
             if self.reduction == "sum":
-                return torch.sum(scores)
+                return torch.sum(score)
             else:
-                return torch.mean(scores)
+                return torch.mean(score)
+            
+
+class VariogramScore(nn.Module):
+    """Calculates the (unweighted) Variogram Score of order p 
+
+    Args:
+        observation (Tensor): Observed outcome. Shape = [batch_size, d, 1]
+        prediction (Tensor): Samples from predictive distribution. Shape = [batch_size, d, n_samples]
+    """
+
+    def __init__(
+        self,
+        p: float = 1,
+        reduce: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
+    ) -> None:
+        super().__init__()
+        self.p = p
+        self.reduce = reduce
+        self.reduction = reduction
+
+    def forward(self, observation: Tensor, prediction: Tensor) -> Tensor:
+        # Check shapes
+        if not (observation.size()[0:-1] == prediction.size()[0:-1]):
+            raise ValueError("Mismatching target and prediction shapes")
+
+        # Calculate terms
+        term_1 = torch.pow(torch.abs(observation - torch.transpose(observation, 1, 2)), self.p)
+        term_2 = torch.mean(torch.pow(torch.abs(torch.unsqueeze(prediction, dim = 1) - torch.unsqueeze(prediction, dim = 2)), self.p), dim = -1)
+
+        #Calculate score
+        score = torch.sum(torch.pow(term_1 - term_2, 2), dim = (1,2))       
+
+
+        if not self.reduce:
+            return score
+        else:
+            if self.reduction == "sum":
+                return torch.sum(score)
+            else:
+                return torch.mean(score)
 
 
 if __name__ == "__main__":
     pred = torch.randn(size=(32, 2, 100))
     obs = torch.randn(size=(32, 2, 1))
 
-    es = EnergyScore()
+    es = VariogramScore()
     test = es(obs, pred)
     print(test.shape)
     print(test)

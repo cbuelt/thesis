@@ -6,10 +6,10 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import  get_train_val_loader, get_test_loader
-from networks.cnn import CNN, CNN_var, CNN_test, CNN_ES
+from networks.cnn import CNN, CNN_var, CNN_test, CNN_ES, CNN_ES_small
 from utils.network import Scheduler
 from utils.utils import retransform_parameters
-from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS, EnergyScore
+from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS, EnergyScore, VariogramScore
 
 
 
@@ -29,7 +29,7 @@ def train_model(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
     )
     # Define model
-    net = CNN_ES(sample_dim=100)
+    net = CNN_ES_small(sample_dim=100)
     net.to(device)
 
     # Specify parameters and functions
@@ -156,7 +156,7 @@ def predict(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "powexp", "whitmat"]
-    exp = "exp_5"
+    exp = "exp_6"
     epochs = 100
     batch_size = 100
 
