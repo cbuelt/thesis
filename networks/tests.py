@@ -7,7 +7,7 @@ import numpy as np
 import os
 import sys
 sys.path.append(os.getcwd())
-from utils.dataloader import get_data_loader, train_val_loader
+from utils.dataloader import get_data_loader, get_train_val_loader
 from utils.network import Scheduler
 
 def retransform(params):
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # Set path
     path = f"data/{exp}/data/"
     # Get dataloaders
-    train_dataloader, val_dataloader, _, _ = train_val_loader(
+    train_dataloader, val_dataloader, _, _ = get_train_val_loader(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
     )
     # Define model

@@ -7,11 +7,16 @@ library(gridExtra)
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- 25#detectCores() - 1
+no_cores <- detectCores() - 2
 
 simulate <- function(params){
+<<<<<<< HEAD
   length <- 30
   x <- seq(0, 10, length = length)
+=======
+  length <- 10
+  x <- seq(0, 25, length = length)
+>>>>>>> 52c413338e115c5552b165bf6ebe7e97794a89d1
   grid <- expand.grid(x,x)
   grid <- array(unlist(grid), dim = c(length**2,2))
   range <- params[["range"]]
@@ -42,6 +47,15 @@ train_params <- cbind(range, smooth)
 
 
 for (model in c("brown", "powexp")){
+exp <- "exp_6"
+
+# Simulate parameters
+smooth <- runif(n = n, min = 0, max = 2)
+range <- runif(n = n, min = 0, max = 10)
+train_params <- cbind(range, smooth)
+
+
+for (model in c("brown", "powexp", "whitmat")){
   #Save params
   save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
   #Create train set

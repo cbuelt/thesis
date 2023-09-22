@@ -14,18 +14,62 @@ setwd(dirname(current_path))
 #Get nodes
 no_cores <- detectCores() - 2
 
-load("../data/exp_4/results/brown_abc_samples_interpolated_n1.RData")
+
+load("../data/exp_5/results/powexp_abc_samples_interpolated_6.RData")
 names(dim(result)) <- c("abc_samples", "variable", "test_sample")
 ArrayToNc(list(Range = result[,1,], Smoothness = result[,2,], Distance = result[,3,]),
-          "../data/exp_4/results/brown_abc_samples_interpolated_n1.nc")
+          "../data/exp_5/results/powexp_abc_samples_interpolated_6.nc")
 
 
-length <-25
-model <- "whitmat"
+#Load data
+exp <- "exp_5"
+model <- "powexp"
+type <- "test"
+load(paste0("../data/", exp,"/data/", model, "_", type, "_data.RData"))
+load(paste0("../data/", exp,"/data/", model, "_", type, "_params.RData"))
+
+length <- 25
 x <- seq(0,length, length = length)
 grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
-field <- rmaxstab(n = 1, coord = grid, cov.mod = model, nugget = 0, range = 1.5, smooth = 1.2)
+
+#Downsampling
+downsample_size <- 10
+x_small <- seq(0,length, length = downsample_size)
+grid_small <- expand.grid(x_small,x_small)
+grid <- array(unlist(grid_small), dim = c(downsample_size**2,2))
+
+
+# Get data based on index
+get_data <- function(i, type = "full"){
+  data <- test_data[,i]
+  if(type != "full"){
+    #If interpolation
+    data_transformed <- array(data, dim = c(length, length))
+    field_small <- bilinear.grid(x = x, y = x, z = data_transformed, nx = downsample_size, ny = downsample_size)
+    data_small <- array(field_small$z, dim = c(1, downsample_size**2))
+    return(data_small)
+  }else{
+    result <- array(data, dim = c(1, length(data)))
+    return(result)
+  }
+}
+
+n_params <- 500
+
+filled.contour(x, x, array(test_data[,i], dim = c(length, length)), color.palette = terrain.colors, nlevels = 30)
+test_data <- sapply(seq(1,n_params), get_data, type = "interp")
+
+i <- 30
+
+
+filled.contour(x_small, x_small, array(test_data[,i], dim = c(downsample_size, downsample_size)), color.palette = terrain.colors, nlevel = 30)
+
+#Save
+exp <- "exp_6"
+save(test_data, file = paste0("../data/", exp,"/data/", model, "_test_data.RData"))
+
+
 
 length_sample <- 6
 field_transformed <- array(field, dim = c(length, length))
