@@ -15,15 +15,15 @@ no_cores <-25#detectCores() - 1
 exp <- "exp_5"
 model <- "powexp"
 n <- 1
-length <- 25
-x <- seq(0,length, length = length)
+length <- 30
+x <- seq(0, 10, length = length)
 grid <- expand.grid(x,x)
 grid <- array(unlist(grid), dim = c(length**2,2))
 
 
-#Downsampling
+# Define smaller grid for downsampling
 downsample_size <- 5
-x_small <- seq(0,length, length = downsample_size)
+x_small <- seq(0, 10, length = downsample_size)
 grid_small <- expand.grid(x_small,x_small)
 grid <- array(unlist(grid_small), dim = c(downsample_size**2,2))
 
