@@ -15,7 +15,6 @@ def transform_parameters(params):
     """
     result = np.zeros(shape = params.shape).astype("float32")
     result[0] = np.log(params[0])
-    #result[0] = params[0]/10
     result[1] = params[1]/2
     return result
 
@@ -33,7 +32,6 @@ def retransform_parameters(params):
     """
     result = np.zeros(shape=params.shape)
     result[:, 0] = np.exp(params[:, 0])
-    #result[:,0] = params[:,0] * 10
     result[:, 1] = params[:, 1] * 2
     return result
 

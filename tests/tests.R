@@ -15,10 +15,9 @@ setwd(dirname(current_path))
 no_cores <- detectCores() - 2
 
 
-load("../data/exp_5/results/powexp_abc_samples_interpolated_6.RData")
-names(dim(result)) <- c("abc_samples", "variable", "test_sample")
-ArrayToNc(list(Range = result[,1,], Smoothness = result[,2,], Distance = result[,3,]),
-          "../data/exp_5/results/powexp_abc_samples_interpolated_6.nc")
+load("../data/final/results/brown_abc_results.RData")
+#names(dim(result)) <- c("abc_samples", "variable", "test_sample")
+ArrayToNc(list(results = result), "../data/final/results/brown_abc_results.nc")
 
 
 #Load data

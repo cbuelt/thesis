@@ -6,10 +6,10 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from utils.dataloader import  get_train_val_loader, get_test_loader
-from networks.cnn import CNN, CNN_var, CNN_test, CNN_ES, CNN_ES_small
+from networks.cnn import CNN, CNN_ES
 from utils.network import Scheduler
 from utils.utils import retransform_parameters
-from utils.losses import IntervalScore, QuantileScore, NormalCRPS, TruncatedNormalCRPS, EnergyScore, VariogramScore
+from utils.losses import EnergyScore
 
 
 
@@ -19,8 +19,11 @@ def train_model(
     epochs: int,
     batch_size: int,
     device,
+    type: str = "normal",
     learning_rate: float = 0.0007, 
     n_val: int = 500,
+    dropout: float = 0.0,
+    sample_dim: float = 100,
 ):
     # Set path
     path = f"data/{exp}/data/"
@@ -28,13 +31,16 @@ def train_model(
     train_dataloader, val_dataloader, _, _ = get_train_val_loader(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
     )
-    # Define model
-    net = CNN_ES_small(sample_dim=100)
-    net.to(device)
+    # Specify model
+    if type == "normal":
+        net = CNN(dropout = dropout)
+        loss_function = torch.nn.MSELoss()
+    elif type == "energy":
+        net = CNN_ES(sample_dim = sample_dim)
+        loss_function = EnergyScore()
 
-    # Specify parameters and functions
-    #criterion2 = torch.nn.MSELoss()
-    criterion = EnergyScore()
+
+    net.to(device)
     optimizer = optim.RMSprop(net.parameters(), lr=learning_rate)
 
     # Initialize Scheduler
@@ -59,9 +65,8 @@ def train_model(
             # forward + backward + optimize
             outputs = net(img)
             param = torch.unsqueeze(param, -1)
-            interval_loss = criterion(param, outputs)
-            #mse_loss = criterion2(param[:,1:2], outputs[2], outputs[3])
-            total_loss = interval_loss#sum([interval_loss, mse_loss])
+            loss = loss_function(param, outputs)
+            total_loss = loss
             total_loss.backward()
             optimizer.step()
             train_loss += total_loss.item()/len(train_dataloader)
@@ -75,9 +80,8 @@ def train_model(
             net.eval()
             outputs = net(img)
             param = torch.unsqueeze(param, -1)
-            interval_loss = criterion(param, outputs)
-            #mse_loss = criterion2(param[:,1:2], outputs[2], outputs[3])
-            total_loss = interval_loss#sum([interval_loss, mse_loss])
+            loss = loss_function(param, outputs)
+            total_loss = loss
             val_loss += total_loss.item()/len(val_dataloader)
         print(
             f"Epoch: {epoch} \t Training loss: {train_loss:.4f} \t Validation loss: {val_loss:.4f}"
@@ -88,75 +92,58 @@ def train_model(
             break
     return net
 
-def predict(
+def predict_test_data(
         exp : str,
         model: str,
-        net,
-        save_train : bool = True,
-        batch_size : int = 1000,
-        batch_size_val: int = 1000,
+        test_size: int,
+        type: str = "normal",
         batch_size_test: int = 500,
-        train_size: int = 5000,
-        test_size: int = 500
+        sample_dim: int = 500,
 ):
     # Set path
     path = f"data/{exp}/data/"
-    # Get dataloaders
-    _ , _, train_dataset, val_dataset = get_train_val_loader(
-        data_path=path, model=model, batch_size=batch_size, batch_size_val=batch_size_val
-    )
     test_loader, _ = get_test_loader(data_path = path, model = model, batch_size = batch_size_test)
-    train_loader = DataLoader(ConcatDataset([train_dataset, val_dataset]), batch_size = batch_size, shuffle = False)
+
+    # Load model
+    if type == "normal":
+        net = CNN()
+    elif type == "energy":
+        net = CNN_ES(sample_dim = sample_dim)
+
+    net.load_state_dict(torch.load(f"data/{exp}/checkpoints/{model}_{net.name}.pt"))
 
     #Send model to device
     net.to(device)
 
     # Prepare arrays
-    train_results = np.zeros(shape = (3, train_size, 2))
-    test_results = np.zeros(shape = (3, test_size, 2))
-
-    
-    #Calculate training samples
-    if save_train:
-        for i, sample in enumerate(train_loader):
-            img, param = sample
-            img = img.to(device)
-            param = param.to(device)
-            net.eval()
-            outputs = net(img)
-            #output_re = retransform_parameters(outputs.cpu().detach().numpy())
-            #param_re = retransform_parameters(param.cpu().detach().numpy())
-            lower = retransform_parameters(outputs[0].cpu().detach().numpy())
-            upper = retransform_parameters(outputs[1].cpu().detach().numpy())
-            train_results[0, (i*batch_size):((i+1)*batch_size),:] = lower
-            train_results[1, (i*batch_size):((i+1)*batch_size),:] = upper
-
-        # Save results
-        np.save(file = f"data/{exp}/results/{net.name}_{model}_train.npy", arr = train_results)
+    if type == "normal":
+        test_results = np.zeros(shape = (test_size, 2))
+    elif type == "energy":
+        test_results = np.zeros(shape = (test_size, 2, sample_dim))
  
     #Calculate test samples
     for i, sample in enumerate(test_loader):
-        img, param, m = sample
+        img, param = sample
         img = img.to(device)
         param = param.to(device)
         net.eval()
         outputs = net(img)
-        #output_re = retransform_parameters(outputs.cpu().detach().numpy())
-        #param_re = retransform_parameters(param.cpu().detach().numpy())
-        lower = retransform_parameters(outputs[0].cpu().detach().numpy())
-        upper = retransform_parameters(outputs[1].cpu().detach().numpy())
-        #mean = retransform_parameters(outputs[2].cpu().detach().numpy())
-        test_results[0, (i*batch_size_test):((i+1)*batch_size_test),:] = lower
-        test_results[1, (i*batch_size_test):((i+1)*batch_size_test),:] = upper
-        test_results[2, (i*batch_size_test):((i+1)*batch_size_test),:] = torch.unsqueeze(m, dim = 1).cpu().detach().numpy()
-    np.save(file = f"data/{exp}/results/{net.name}_{model}_test.npy", arr = test_results)
+        # Retransform
+        outputs = retransform_parameters(outputs.detach().cpu().numpy())
+        if type == "normal":
+            test_results[:, (i*batch_size_test):((i+1)*batch_size_test)] = np.squeeze(outputs)
+        elif type == "energy":
+            test_results[:, (i*batch_size_test):((i+1)*batch_size_test),:] = outputs
+
+    np.save(file = f"data/{exp}/results/{model}_{net.name}.npy", arr = test_results)
     print(f"Saved results for model {model} and network {net.name}")
 
 
 if __name__ == "__main__":
     # Set model
-    models = ["brown", "powexp", "whitmat"]
-    exp = "exp_6"
+    models = ["brown", "powexp"]
+    exp = "final"
+    types = ["normal", "energy"]
     epochs = 100
     batch_size = 100
 
@@ -164,5 +151,6 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     for model in models:
-        trained_net = train_model(exp, model, epochs, batch_size, device, learning_rate = 0.0007)
-        #predict(exp, model, trained_net, save_train = False, test_size = 1500)
+        for type in types:
+            #trained_net = train_model(exp, model, epochs, batch_size, device, type = type)
+            predict_test_data(exp, model, test_size = 500, type = type)

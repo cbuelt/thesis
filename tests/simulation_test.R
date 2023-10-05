@@ -9,19 +9,21 @@ library(gridExtra)
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- 20 #detectCores() - 1
+no_cores <- 8 #detectCores() - 1
+
 
 
 simulate <- function(params){
-  x <- seq(1,20, length = 25)
+  length <- 128
+  x <- seq(0, 30, length = length)
   grid <- expand.grid(x,x)
-  grid <- array(unlist(grid), dim = c(625,2))
+  grid <- array(unlist(grid), dim = c(length**2,2))
   range <- params[["range"]]
   smooth <- params[["smooth"]]
   if (model == "brown"){
     data <- rmaxstab(n = 1, coord = grid, cov.mod = "brown", range = range, smooth = smooth)
   }else{
-    data <- rmaxstab(1, coord = grid, cov.mod = "powexp", nugget = 0, range = range, smooth = smooth)
+    data <- rmaxstab(1, coord = grid, cov.mod = model, nugget = 0, range = range, smooth = smooth)
   }
   return(data)
 }
@@ -35,23 +37,25 @@ generate_params <- function(n, range_seq, smooth_seq){
 
 #Set general parameters
 n <- 400
-exp <- "exp_2"
+exp <- "final"
 
 
 #
 ####### Brown-Resnick Model
 #
-model = "brown"
-type = "val"
+model = "powexp"
 
 # Simulate training data
 range_seq = c(0.1,3)
 smooth_seq = c(0.5,1.9)
-train_params <- generate_params(n, range_seq, smooth_seq)
 
+# Generate example
+range <- rep(c(0.6, 1.4, 2.8, 4.5), 4)
+smooth <- rep(c(0.3, 0.7, 1.4, 1.9), each = 4)
+train_params <- cbind(range, smooth)
 
 #Save params
-save(train_params, file = paste0("../data/",exp,"/data/", model, "_", type, "_params.RData"))
+save(train_params, file = paste0("../plots/data/", model, "_example", "_params.RData"))
 #Create train set
 # Initiate cluster
 cl <- makeCluster(no_cores)
@@ -62,7 +66,7 @@ train_data <- parApply(cl, train_params, MARGIN = 1, FUN = simulate)
 stopCluster(cl)
 
 #Save train_data
-save(train_data, file = paste0("../data/",exp,"/data/", model, "_", type, "_data.RData"))
+save(train_data, file = paste0("../plots/data/", model, "_example", "_data.RData"))
 
 
 #Test set
