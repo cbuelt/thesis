@@ -113,7 +113,7 @@ class CNN_ES(Module):
         # Create noise vector
         latent_dim = list(x_split.size())
         latent_dim.insert(1,self.sample_dim)
-        noise = torch.randn(size=latent_dim, device=x_split.device)
+        noise = torch.randn(size=latent_dim, device=x_split.device) + 1
         x_noise = self.batch_norm(x_split)        
         x_noise = torch.unsqueeze(x_noise, dim = 1)
         x_noise = torch.mul(x_noise, noise)        

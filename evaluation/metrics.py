@@ -45,7 +45,7 @@ def corr_func(h: float, model: str, r: float, s: float) -> float:
         res = np.exp(-np.power((h / r), s))
     elif model == "whitmat":
         res = (
-            np.power(2, float(1 - s))
+            np.power(2, (1 - s))
             / sc.special.gamma(s)
             * np.power((h / r), 2)
             * sc.special.kv(s, (h / r))
@@ -65,16 +65,19 @@ def extremal_coefficient(h: float, model: str, r: float, s: float) -> float:
         float: Returns value of the extremal coefficient
     """
     if model == "brown":
-        res = 2 * sc.stats.norm.cdf(
-            np.sqrt(corr_func(h, model, r, s)) / 2, loc=0, scale=1
+        res = 2 * sc.special.ndtr(
+            np.sqrt(corr_func(h, model, r, s)) / 2
         )
     else:
         res = 1 + np.sqrt(1 - corr_func(h, model, r, s) / 2)
     return res
 
-def sample_extremal_coefficient(h: float, model: str, r: float, s: float) -> float:
+def sample_extremal_coefficient(h: float, model: str, r: float, s: float, mean: bool = True) -> float:
     sample_size = r.shape[0]
-    return(np.mean(np.array([extremal_coefficient(h, model, r[i], s[i]) for i in range(sample_size)]), axis = 0))
+    if mean:
+        return np.mean(np.array([extremal_coefficient(h, model, r[i], s[i]) for i in range(sample_size)]), axis = 0)
+    else:
+         return np.array([extremal_coefficient(h, model, r[i], s[i]) for i in range(sample_size)])
 
 
 def error_function(
@@ -150,6 +153,7 @@ def get_interval_score(
     alpha,
     q_left=None,
     q_right=None,
+    full: bool = False,
     sd: bool = False
 ):
     sharpness = q_right - q_left
@@ -162,12 +166,52 @@ def get_interval_score(
         / alpha
     )
     total = sharpness + calibration
+    if full:
+        return total
     if sd == False:
         return np.mean(total, axis = 0)
     else:
         return np.mean(total, axis = 0), np.std(total, axis = 0)
+    
+
+def get_pointwise_is(h, model, r_true, s_true, r_est, s_est, alpha):
+    #Get true function
+    true = extremal_coefficient(h, model, r_true, s_true)
+    #Get quantile functions
+    quantiles = np.quantile(sample_extremal_coefficient(h, model, r_est, s_est, mean = False), q = [alpha/2, 1 - (alpha/2)])
+    interval_score = get_interval_score(true, alpha = alpha, q_left = quantiles[0], q_right = quantiles[1], full = True)
+    return interval_score
 
 
+def is_wrapper(model, r_true, s_true, r_est, s_est, max_length, alpha):
+    h = np.linspace(0, np.sqrt(np.power(max_length, 2)), 1000)
+    res = get_pointwise_is(h, model, r_true, s_true, r_est, s_est, alpha)
+    return res.mean()
+
+def get_integrated_is(
+    model: str,
+    true: Mapping[float, float],
+    estimate: Mapping[float, float],
+    max_length: float = 30,
+    alpha: float = 0.05,
+    sd: bool = False,
+    par: bool = True) -> float:
+
+    # Number of samples
+    n_samples = true.shape[0]
+
+    if par:
+        pool = mp.Pool(mp.cpu_count()-2)
+        results = [pool.apply_async(is_wrapper, args = (model, true[i,0], true[i,1], estimate[i,0], estimate[i,1], max_length, alpha)) for i in range(n_samples)]
+        pool.close()
+        pool.join()
+        error = np.array([r.get() for r in results])
+    else:
+        error = np.array([is_wrapper(model, true[i,0], true[i,1], estimate[i,0], estimate[i,1], max_length, alpha) for i in range(n_samples)])
+    if sd == False:
+        return np.mean(error)
+    else:
+        return np.mean(error), np.std(error)
 
 
 def get_energy_score(y_true, y_pred, sd: bool = False):
