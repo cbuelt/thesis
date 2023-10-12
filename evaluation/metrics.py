@@ -155,6 +155,49 @@ def bivariate_density(
     return density
 
 
+def pointwise_kld(z1, z2, h, r1, s1, model1, r2, s2, model2 = None, eps_f = 7):
+    eps = 1/np.power(10,eps_f)    
+    # p is datal, q is model
+    model2 = model1 if model2 == None else model2
+    p = bivariate_density(z1, z2, h, model1, r1, s1)
+    q = bivariate_density(z1, z2, h, model2, r2, s2)
+    kld = p * np.log((p/q)+eps)
+    return kld
+
+def integrated_kld(r1,s1, model1, r2, s2 ,model2, max_length, tol_f):
+    zero_tol = 0.1
+    model2 = model1 if model2 == None else model2
+
+    #Build Romberg grid
+    n_lin = np.power(2,7)+1
+    h_disc = np.linspace(0.9, np.sqrt(2)*max_length, n_lin)
+    spacing = (np.sqrt(2)*max_length-0.001)/(n_lin-1)
+
+    # Integration across z1,z2
+    pre_res = np.array([sc.integrate.dblquad(pointwise_kld, zero_tol, np.inf, zero_tol, np.inf, args = (h, r1, s1, model1, r2, s2, model2), epsabs = 1/np.power(10,tol_f)) for h in h_disc])
+
+    #Romberg integration across h
+    res = sc.integrate.romb(pre_res[:,0],  dx = spacing)
+    return res
+
+def get_integrated_kld(true, model1, est, model2, max_length = 30, tol_f = 5, sd = False):
+    # Number of samples
+    n_samples = true.shape[0]
+    #Calculate KLD
+    pool = mp.Pool(mp.cpu_count() - 8)
+    results = [pool.apply_async(integrated_kld, args = (true[i,0], true[i,1], model1, est[i,0], est[i,1], model2, max_length, tol_f)) for i in range(n_samples)]
+
+    error = np.array([r.get() for r in results])
+    pool.close()
+    pool.join()
+
+    if sd == False:
+        return np.mean(error, axis=0)
+    else:
+        return np.mean(error, axis=0), np.std(error, axis=0)
+
+
+
 def extremal_coefficient(h: float, model: str, r: float, s: float) -> float:
     """Calculates the extremal coefficient depending on the model, model parametersand distance h.
 
