@@ -141,7 +141,7 @@ def predict_test_data(
 
 if __name__ == "__main__":
     # Set model
-    models = ["whitmat"]
+    models = ["smith"]
     exp = "outside_model"
     types = ["normal","energy"]
     epochs = 100
@@ -153,4 +153,4 @@ if __name__ == "__main__":
     for model in models:
         for type in types:
             #trained_net = train_model(exp, model, epochs, batch_size, device, type = type)
-            predict_test_data(exp, model, test_size = 500, type = type)
+            predict_test_data(exp, model, test_size = 250, type = type)

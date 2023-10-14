@@ -15,9 +15,9 @@ setwd(dirname(current_path))
 no_cores <- detectCores() - 2
 
 
-load("../data/outside_model/results/whitmat_abc_results.RData")
+load("../data/outside_model/results/smith_abc_results.RData")
 #names(dim(result)) <- c("abc_samples", "variable", "test_sample")
-ArrayToNc(list(results = result), "../data/outside_model/results/whitmat_abc_results.nc")
+ArrayToNc(list(results = result), "../data/outside_model/results/smith_abc_results.nc")
 
 
 #Load data
