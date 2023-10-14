@@ -7,7 +7,7 @@ library(gridExtra)
 current_path = rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 #Get nodes
-no_cores <- detectCores() - 2
+no_cores <- detectCores() - 4
 
 simulate <- function(params){
   length <- 30
@@ -27,7 +27,7 @@ simulate <- function(params){
 }
 
 #Set parameters
-exp <- "outside_model"
+exp <- "outside_parameters"
 
 
 #
@@ -38,7 +38,7 @@ exp <- "outside_model"
 n <- 5000
 
 # Simulate parameters
-smooth <- runif(n = n, min = 0.3, max = 1.8)
+smooth <- runif(n = n, min = 0, max = 2)
 range <- runif(n = n, min = 0.5, max = 5)
 train_params <- cbind(range, smooth)
 
@@ -66,13 +66,17 @@ n_each <- 1
 n <- 250
 
 # Simulate parameters
-smooth <- rep(runif(n = n, min = 0, max = 2), each = n_each)
+smooth <- rep(runif(n = n, min = 0.3, max = 1.8), each = n_each)
 range <- rep(runif(n = n, min = 0.5, max = 5), each = n_each)
 
-#range <- c(0.2748737, 0.4687288, 3.575283, 4.846655, 1.362708, 1.525501, 4.017220, 3.238309)
-#smooth<- c(0.0845058, 1.069622, 0.6416916, 0.3100938, 1.899021, 1.984236, 1.613812, 1.793770)
-#range <- rep(range, each = n_each)
-#smooth <- rep(smooth, each = n_each)
+#Outside parameters
+full_smooth <- runif(n = 2000, min = 0, max = 2)
+full_range <- runif(n = 2000, min = 0, max = 10)
+
+smooth <- full_smooth[(full_smooth<0.3) | (full_smooth > 1.8)][1:n]
+range <- full_range[(full_range<0.5) | (full_range > 5)][1:n]
+
+
 test_params <- cbind(range, smooth)
 
 for (model in c("brown")){

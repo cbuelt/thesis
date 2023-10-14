@@ -4,20 +4,20 @@ setwd(dirname(current_path))
 # Source functions
 source("pl_functions.R")
 #Get nodes
-no_cores <- 25#detectCores() - 1
+no_cores <- detectCores() - 4
 
 
 #
 ## Run single fit with choosing best likelihood
 #
 model <- "brown"
-exp <- "final"
+exp <- "outside_parameters"
 load(paste0("../data/", exp, "/data/", model, "_test_data.RData"))
 load(paste0("../data/", exp, "/data/", model, "_test_params.RData"))
 
 # Define grid used in data
 length <- 30
-x <- seq(0, 10, length = length)
+x <- seq(0, length, length = length)
 grid <- expand.grid(x, x)
 grid <- array(unlist(grid), dim = c(length ** 2, 2))
 n_param <- dim(test_params)[1]
@@ -41,7 +41,7 @@ save(results,
        exp,
        "/results/",
        model,
-       "_single_image_fit_opt.RData"
+       "_pl.RData"
      ))
 
 
