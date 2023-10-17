@@ -9,8 +9,8 @@ no_cores <-detectCores() - 4
 
 #Steps
 #Define grid
-exp <- "outside_model"
-model <- "smith"
+exp <- "outside_parameters"
+model <- "brown"
 # Define grid
 length <- 30
 x <- seq(0, length, length = length)
@@ -26,14 +26,14 @@ grid <- array(unlist(grid_small), dim = c(downsample_size**2,2))
 #Load data
 load(paste0("../data/", exp,"/data/", model, "_test_data.RData"))
 load(paste0("../data/", exp,"/data/", model, "_test_params.RData"))
-model <- "brown"
+
 
 
 #Measure time
 start_time <- Sys.time()
 
 #Run simulations
-index <- seq(1, 2, 1)
+index <- seq(1, 250, 1)
 result <- sapply(X = index, FUN = abc_wrapper, simplify = "array", grid, model, 50000, n_cores = no_cores, interp = "interpolate", n_sim_each = 25)
 #Save results
 save(result, file = paste0("../data/",exp,"/results/", model, "_abc_results.RData"))
