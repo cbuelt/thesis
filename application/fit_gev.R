@@ -21,6 +21,7 @@ grid <- ptransform(lat_lon_grid/180*pi, '+proj=longlat', '+proj=eqc')
 grid[,1] <- grid[,1] - grid[1,1]
 grid[,2] <- grid[,2] - grid[1,2]
 grid <- grid[,1:2]/4000
+ArrayToNc(list(grid = grid), "../../data/application/grid.nc")
 
 
 
@@ -44,6 +45,6 @@ gev_fit <- fitspatgev(data_mat, lat_lon_grid, loc, scale, shape, temp.cov = temp
 
 round(gev_fit$fitted.values,4)
 round(gev_fit$std.err,4)
- 
+
 
 
