@@ -34,50 +34,6 @@ def get_test_loader(data_path, model, batch_size = 750):
     return test_loader, test_dataset
 
 
-class CombinedSpatialField(Dataset):
-    def __init__(
-        self,
-        data_path : str,
-        var: str,
-    ):
-        self.data_path = data_path
-        self.var = var
-        self.img_data = np.load(self.data_path+self.var+"_data.npy")
-        self.param_data = np.load(self.data_path+self.var+"_params.npy")
-        self.sample_size = len(self.param_data)
-
-    def __len__(self):
-        return self.sample_size
-
-    def __getitem__(self, idx):
-        img = self.img_data[idx,:,:]
-        param = self.param_data[idx,0:2].astype("float32")
-        model = self.param_data[idx,2]
-
-        #Transform   
-        img_mean = img.mean()
-        img_std = img.std()
-        img = (img - img_mean)/img_std     
-        param = transform_parameters(param)    
-
-        #Expand dimension of image
-        img = np.expand_dims(img, axis = 0).astype("float32")
-        #img = img.astype("float32")
-
-        if self.var == "train":
-            #Rotation of image
-            img = torch.from_numpy(np.swapaxes(img, 0, 2))
-            angle = random.choice([0, 0, 180, 0])
-            img = rotate(torch.swapaxes(img, 0, 2) ,angle = angle)
-            # Vertical and horizontal flip
-            hflipper = T.RandomHorizontalFlip(p=0.2)
-            vflipper = T.RandomVerticalFlip(p=0.2)
-            img = hflipper(img)
-            img = vflipper(img)
-        return img, param, model
-
-
-
 class SpatialField(Dataset):
     """Dataset for train and test data split into two files.
 
@@ -93,9 +49,13 @@ class SpatialField(Dataset):
         self.data_path = data_path
         self.var = var
         self.model = model
-        self.img_data = np.load(self.data_path+self.model+"_"+self.var+"_data.npy")
-        self.param_data = np.load(self.data_path+self.model+"_"+self.var+"_params.npy")
-        self.sample_size = self.param_data.shape[0]
+        self.img_data = np.load(self.data_path+self.model+"_"+self.var+"_data.npy")         
+        self.sample_size = self.img_data.shape[0]       
+        try:
+            self.param_data = np.load(self.data_path+self.model+"_"+self.var+"_params.npy")
+        except:
+            self.param_data = np.ones(shape = (self.sample_size, 2))
+        
 
     def __len__(self):
         return self.sample_size
