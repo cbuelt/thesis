@@ -9,11 +9,7 @@ setwd(dirname(current_path))
 #Get nodes
 no_cores <- detectCores() - 4
 
-simulate <- function(params){
-  length <- 30
-  x <- seq(0, length, length = length)
-  grid <- expand.grid(x,x)
-  grid <- array(unlist(grid), dim = c(length**2,2))
+simulate <- function(params, grid){
   range <- params[["range"]]
   smooth <- params[["smooth"]]
   if (model == "brown"){
@@ -27,8 +23,12 @@ simulate <- function(params){
 }
 
 #Set parameters
-exp <- "outside_parameters"
-
+exp <- "application"
+# Define grid
+length <- 30
+x <- seq(0, length, length = length)
+grid <- expand.grid(x,x)
+grid <- array(unlist(grid), dim = c(length**2,2))
 
 #
 # Training/Validation data
@@ -39,11 +39,11 @@ n <- 5000
 
 # Simulate parameters
 smooth <- runif(n = n, min = 0, max = 2)
-range <- runif(n = n, min = 0.5, max = 5)
+range <- runif(n = n, min = 0, max = 5)
 train_params <- cbind(range, smooth)
 
 
-for (model in c("brown", "powexp", "whitmat")){
+for (model in c("powexp")){
   #Save params
   save(train_params, file = paste0("../data/",exp,"/data/", model, "_train_params.RData"))
   #Create train set
@@ -52,7 +52,7 @@ for (model in c("brown", "powexp", "whitmat")){
   clusterExport(cl,c('simulate', 'model'))
   clusterEvalQ(cl, library(SpatialExtremes))
   
-  train_data <- parApply(cl, train_params, MARGIN = 1, FUN = simulate)
+  train_data <- parApply(cl, train_params, grid, MARGIN = 1, FUN = simulate)
   stopCluster(cl)
   
   #Save train_data
@@ -70,14 +70,13 @@ smooth <- rep(runif(n = n, min = 0.3, max = 1.8), each = n_each)
 range <- rep(runif(n = n, min = 0.5, max = 5), each = n_each)
 
 #Outside parameters
-full_smooth <- runif(n = 2000, min = 0, max = 2)
-full_range <- runif(n = 2000, min = 0, max = 10)
-
-smooth <- full_smooth[(full_smooth<0.3) | (full_smooth > 1.8)][1:n]
-range <- full_range[(full_range<0.5) | (full_range > 5)][1:n]
-
-
+smooth <- runif(n = 2000, min = 0, max = 2)
+range <- runif(n = 2000, min = 0, max = 10)
 test_params <- cbind(range, smooth)
+
+test_params <- test_params[(test_params[,2] < 0.3) | (test_params[,2] > 1.8) | (test_params[,1] < 0.5) | (test_params[,1] > 5), ]
+test_params <- test_params[1:n,]
+
 
 for (model in c("brown")){
   #Save params
@@ -88,7 +87,7 @@ for (model in c("brown")){
   clusterExport(cl,c('simulate', 'model'))
   clusterEvalQ(cl, library(SpatialExtremes))
   
-  test_data <- parApply(cl, test_params, MARGIN = 1, FUN = simulate)
+  test_data <- parApply(cl, test_params, grid, MARGIN = 1, FUN = simulate)
   stopCluster(cl)
   
   #Save train_data

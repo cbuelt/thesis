@@ -3,7 +3,7 @@ setwd(dirname(current_path))
 #Load functions
 source("abc_functions.R")
 #Get nodes
-no_cores <-detectCores() - 4
+no_cores <-detectCores() - 6
 
 
 

@@ -171,7 +171,7 @@ run_abc_sampling <- function(data, grid, cluster_res, model, n_sim,
   
   #Generate sampling parameters
   smooth <- runif(n = n_sim, min = 0.3, max = 1.8)
-  range <- runif(n = n_sim, min = 0, max = 5)
+  range <- runif(n = n_sim, min = 0.5, max = 5)
   test_params <- cbind(range, smooth)
   
   #Calculate parallel ABC
