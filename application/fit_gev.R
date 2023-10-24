@@ -20,10 +20,9 @@ colnames(lat_lon_grid) <- c("lon", "lat")
 grid <- ptransform(lat_lon_grid/180*pi, '+proj=longlat', '+proj=eqc') 
 grid[,1] <- grid[,1] - grid[1,1]
 grid[,2] <- grid[,2] - grid[1,2]
-grid <- grid[,1:2]/4000
+grid <- grid[,1:2]/40000
+sqrt(sum(grid[900,]**2))
 ArrayToNc(list(grid = grid), "../../data/application/grid.nc")
-
-
 
 
 data_raw <- nc_open("../../data/application/1931_2020_month_max.nc")
