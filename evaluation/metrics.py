@@ -2,9 +2,9 @@ import numpy as np
 import scipy as sc
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 import pyreadr
 import itertools
-import sys
 import xarray as xr
 import multiprocessing as mp
 from typing import Mapping
@@ -183,7 +183,7 @@ def get_integrated_kld(true, model1, est, model2 = None, max_length = 30, tol_f 
     # Number of samples
     n_samples = true.shape[0]
     #Calculate KLD
-    pool = mp.Pool(mp.cpu_count() - 6)
+    pool = mp.Pool(len(os.sched_getaffinity(0)))
     results = [pool.apply_async(integrated_kld, args = (true[i,0], true[i,1], model1, est[i,0], est[i,1], model2, max_length, tol_f)) for i in range(n_samples)]
 
     error = np.array([r.get() for r in results])
@@ -299,6 +299,7 @@ def get_integrated_error(
         0,
         (np.sqrt(2)*max_length),
         args=(model, true, estimate, method, model2),
+        full_output = 1,
     )[0]
     error = np.array([integrate(true[i, :], estimate[i, :]) for i in range(n_samples)])
     if sd == False:
@@ -344,7 +345,7 @@ def get_pointwise_is(h, model, r_true, s_true, r_est, s_est, alpha, model2):
 
 def is_wrapper(model, r_true, s_true, r_est, s_est, max_length, alpha, model2):
     integrate = lambda h: get_pointwise_is(h, model, r_true, s_true, r_est, s_est, alpha, model2)
-    res = sc.integrate.quad(integrate, 0, (np.sqrt(2)*max_length))
+    res = sc.integrate.quad(integrate, 0, (np.sqrt(2)*max_length), full_output = 1)
     return res[0]
 
 
@@ -361,7 +362,7 @@ def get_integrated_is(
     model2 = model if model2 == None else model2
     # Number of samples
     n_samples = true.shape[0]
-    pool = mp.Pool(mp.cpu_count() - 2)
+    pool = mp.Pool(len(os.sched_getaffinity(0)))
     results = [
         pool.apply_async(
             is_wrapper,
