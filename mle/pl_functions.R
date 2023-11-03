@@ -5,7 +5,7 @@ library(parallel)
 library(gridExtra)
 
 #' Get weights for pairwise likelihood
-#' @description A weight matrix is construced (poorly implemented using a for loop) that includes weights for the
+#' @description A weight matrix is constructed (poorly implemented using a for loop) that includes weights for the
 #' pairwise likelihood approach
 #'
 #' @param grid Grid on which the max-stable process is defined
@@ -97,7 +97,6 @@ run_start_values <- function(initial_params, data, grid, weights, n_out) {
 #'
 #' @param i Index of the current data from the data set
 #' @param data The data set with observations of max-stable processes
-#' @param params The parameter pairs of the observations
 #' @param grid The underlying grid of the max-stable process
 #' @param weights The weight matrix used for the pairwise likelihood
 #' @param n_sim The number of simulations
@@ -110,16 +109,11 @@ run_start_values <- function(initial_params, data, grid, weights, n_out) {
 apply_mle <-
   function(i,
            data,
-           params,
            grid,
            weights,
            n_sim = 20,
            n_top = 5) {
     data_subset <- array(rep(data[, i], each = 3), dim = c(3, length ** 2))
-    #For multiple images
-    #data_subset <- t(data[,(i*5-4):(i*5)])
-    
-    true <- params[i, ]
     
     # Choose parameter range
     range_seq = c(0.5, 5)

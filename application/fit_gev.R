@@ -31,9 +31,7 @@ n_obs <- dim(data)[3]
 data_vec <- as.vector(data)
 data_mat <- t(matrix(data_vec, nrow = 900, ncol = n_obs))
 
-
-
-
+# Estimate spatial GEV
 loc <- y ~ 1 + lat + lon
 scale <- y ~ 1
 shape <- y ~ 1
@@ -44,6 +42,14 @@ gev_fit <- fitspatgev(data_mat, lat_lon_grid, loc, scale, shape, temp.cov = temp
 
 round(gev_fit$fitted.values,4)
 round(gev_fit$std.err,4)
+
+
+#
+### Simulate data from estimated models
+#
+
+
+
 
 
 

@@ -1,4 +1,8 @@
 from metrics import *
+import pyreadr
+import xarray as xr
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 0.05, model2 = None):
     #Get mean prediction
@@ -7,7 +11,7 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
     # PL
     mse = get_mse(true_parameters, pl, sd = True)
     imse = get_integrated_error(model, true = true_parameters, estimate = pl, sd = True, model2 = model2)
-    kld = get_integrated_kld(true_parameters, model, pl, sd = True)
+    kld = get_integrated_kld(true_parameters, model, pl, sd = True, model2 = model2)
     results.loc[(model, "MSE_r"), "PL"] = f"{mse[0][0]:.4f} ({mse[1][0]:.2f})"
     results.loc[(model, "MSE_s"), "PL"] = f"{mse[0][1]:.4f} ({mse[1][1]:.2f})"
     results.loc[(model, "MSE_ext"), "PL"] = f"{imse[0]:.4f} ({imse[1]:.2f})"
@@ -16,7 +20,7 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
     # CNN 
     mse = get_mse(true_parameters, cnn, sd = True)
     imse = get_integrated_error(model, true = true_parameters, estimate = cnn, sd = True, model2 = model2)
-    kld = get_integrated_kld(true_parameters, model, cnn, sd = True)
+    kld = get_integrated_kld(true_parameters, model, cnn, sd = True, model2 = model2)
     results.loc[(model, "MSE_r"), "CNN"] = f"{mse[0][0]:.4f} ({mse[1][0]:.2f})"
     results.loc[(model, "MSE_s"), "CNN"] = f"{mse[0][1]:.4f} ({mse[1][1]:.2f})"
     results.loc[(model, "MSE_ext"), "CNN"] = f"{imse[0]:.4f} ({imse[1]:.2f})"
@@ -25,7 +29,7 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
     # ABC
     mse = get_mse(true_parameters, abc_mean, sd = True)
     imse = get_integrated_error(model, true = true_parameters, estimate = abc, method = "sample", sd = True, model2 = model2)
-    kld = get_integrated_kld(true_parameters, model, abc_mean, sd = True)
+    kld = get_integrated_kld(true_parameters, model, abc_mean, sd = True, model2 = model2)
     results.loc[(model, "MSE_r"), "ABC"] = f"{mse[0][0]:.4f} ({mse[1][0]:.2f})"
     results.loc[(model, "MSE_s"), "ABC"] = f"{mse[0][1]:.4f} ({mse[1][1]:.2f})"
     results.loc[(model, "MSE_ext"), "ABC"] = f"{imse[0]:.4f} ({imse[1]:.2f})"
@@ -43,7 +47,7 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
     # CNN ES
     mse = get_mse(true_parameters, cnn_es_mean, sd = True)
     imse = get_integrated_error(model, true = true_parameters, estimate = cnn_es, method = "sample", sd = True, model2 = model2)
-    kld = get_integrated_kld(true_parameters, model, cnn_es_mean, sd = True)
+    kld = get_integrated_kld(true_parameters, model, cnn_es_mean, sd = True, model2 = model2)
     results.loc[(model, "MSE_r"), "CNN_ES"] = f"{mse[0][0]:.4f} ({mse[1][0]:.2f})"
     results.loc[(model, "MSE_s"), "CNN_ES"] = f"{mse[0][1]:.4f} ({mse[1][1]:.2f})"
     results.loc[(model, "MSE_ext"), "CNN_ES"] = f"{imse[0]:.4f} ({imse[1]:.2f})"
@@ -97,22 +101,22 @@ def get_results_table(exp, models, model2 = None, save = True):
 
 
 if __name__ == "__main__":
-    n_test = 5
+    n_test = 250
 
     # Normal predictions
     exp = "normal"
-    #get_results_table(exp, models = ["brown", "powexp"])    
+    get_results_table(exp, models = ["brown", "powexp"])    
 
     # Outside parameters
-   # exp = "outside_parameters"
-   # get_results_table(exp, models = ["brown"])
+    exp = "outside_parameters"
+    get_results_table(exp, models = ["brown"])
 
     # Outside model - Whitmat
-  # exp = "outside_model"
-   # get_results_table(exp, models = ["whitmat"], model2 = "powexp")
+    exp = "outside_model"
+    get_results_table(exp, models = ["whitmat"], model2 = "powexp")
 
     # Outside model - Smith
-   # get_results_table(exp, models = ["brown"])
+    get_results_table(exp, models = ["brown"])
 
 
 
