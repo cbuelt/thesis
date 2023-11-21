@@ -11,6 +11,8 @@ from utils.network import Scheduler
 from utils.utils import retransform_parameters
 from utils.losses import EnergyScore
 
+from datetime import datetime
+
 
 
 def train_model(
@@ -142,8 +144,8 @@ def predict_test_data(
 if __name__ == "__main__":
     # Set model
     models = ["brown", "powexp"]
-    exp = "application"
-    types = ["normal", "energy"]
+    exp = "normal"
+    types = ["energy", "normal"]
     epochs = 100
     batch_size = 100
 
@@ -152,5 +154,6 @@ if __name__ == "__main__":
 
     for model in models:
         for type in types:
+            start_time = datetime.now()
             trained_net = train_model(exp, model, epochs, batch_size, device, type = type)
-            predict_test_data(exp, model, test_size = 9, type = type)
+            predict_test_data(exp, model, test_size = 500, type = type)

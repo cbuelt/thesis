@@ -23,7 +23,7 @@ grid <- expand.grid(x, x)
 grid <- array(unlist(grid), dim = c(length ** 2, 2))
 
 
-# Load application data
+#Load application data
 # model <- "powexp"
 # library(ncdf4)
 # exp <- "application"
@@ -39,7 +39,7 @@ grid <- array(unlist(grid), dim = c(length ** 2, 2))
 
 
 # Get weights
-weights <- get_weights(grid, length, cutoff = 5)
+weights <- get_weights(grid, length, cutoff = 0.5)
 
 # Initiate cluster
 cl <- makeCluster(no_cores)

@@ -424,8 +424,13 @@ def get_integrated_error(
 
 
 def get_interval_score(
-    observations: float, alpha:float, q_left:float=None, q_right:float=None, full: bool = False, sd: bool = False
-)->float:
+    observations: float,
+    alpha: float,
+    q_left: float = None,
+    q_right: float = None,
+    full: bool = False,
+    sd: bool = False,
+) -> float:
     """Calculates the interval score for observations and a prediction interval at level alpha
 
     Args:
@@ -457,7 +462,16 @@ def get_interval_score(
         return np.mean(total, axis=0), np.std(total, axis=0)
 
 
-def get_pointwise_is(h: float, model: str, r_true: float, s_true: float, r_est: float, s_est: float, alpha: float, model2: str)-> float:
+def get_pointwise_is(
+    h: float,
+    model: str,
+    r_true: float,
+    s_true: float,
+    r_est: float,
+    s_est: float,
+    alpha: float,
+    model2: str,
+) -> float:
     """Calculate the pointwise interval score for the extremal coefficient function and corresponding estimates
 
     Args:
@@ -486,7 +500,16 @@ def get_pointwise_is(h: float, model: str, r_true: float, s_true: float, r_est: 
     return interval_score
 
 
-def is_wrapper(model: str, r_true: float, s_true: float, r_est: float, s_est: float, max_length: float, alpha: float, model2: str)->float:
+def is_wrapper(
+    model: str,
+    r_true: float,
+    s_true: float,
+    r_est: float,
+    s_est: float,
+    max_length: float,
+    alpha: float,
+    model2: str,
+) -> float:
     """Wrapper for calculating the integrated interval score over one sample of estimated and true parameters
 
     Args:
@@ -563,7 +586,7 @@ def get_integrated_is(
         return np.mean(error), np.std(error)
 
 
-def get_energy_score(y_true: float, y_pred: float, sd: bool = False)-> float:
+def get_energy_score(y_true: float, y_pred: float, sd: bool = False) -> float:
     """Compute mean energy score from samples of the predictive distribution.
 
     Args:
