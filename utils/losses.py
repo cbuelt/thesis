@@ -1,3 +1,7 @@
+#
+# This file includes different loss functions for training the neural network.
+#
+
 import torch.nn as nn
 import torch
 from typing import Optional
@@ -339,10 +343,10 @@ class EnergyScore(nn.Module):
                 return torch.sum(score)
             else:
                 return torch.mean(score)
-            
+
 
 class VariogramScore(nn.Module):
-    """Calculates the (unweighted) Variogram Score of order p 
+    """Calculates the (unweighted) Variogram Score of order p
 
     Args:
         observation (Tensor): Observed outcome. Shape = [batch_size, d, 1]
@@ -366,12 +370,22 @@ class VariogramScore(nn.Module):
             raise ValueError("Mismatching target and prediction shapes")
 
         # Calculate terms
-        term_1 = torch.pow(torch.abs(observation - torch.transpose(observation, 1, 2)), self.p)
-        term_2 = torch.mean(torch.pow(torch.abs(torch.unsqueeze(prediction, dim = 1) - torch.unsqueeze(prediction, dim = 2)), self.p), dim = -1)
+        term_1 = torch.pow(
+            torch.abs(observation - torch.transpose(observation, 1, 2)), self.p
+        )
+        term_2 = torch.mean(
+            torch.pow(
+                torch.abs(
+                    torch.unsqueeze(prediction, dim=1)
+                    - torch.unsqueeze(prediction, dim=2)
+                ),
+                self.p,
+            ),
+            dim=-1,
+        )
 
-        #Calculate score
-        score = torch.sum(torch.pow(term_1 - term_2, 2), dim = (1,2))       
-
+        # Calculate score
+        score = torch.sum(torch.pow(term_1 - term_2, 2), dim=(1, 2))
 
         if not self.reduce:
             return score
@@ -390,4 +404,3 @@ if __name__ == "__main__":
     test = es(obs, pred)
     print(test.shape)
     print(test)
-

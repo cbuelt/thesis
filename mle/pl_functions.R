@@ -1,5 +1,4 @@
 library(SpatialExtremes)
-library(graphics)
 library(lattice)
 library(parallel)
 library(gridExtra)

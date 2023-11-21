@@ -1,7 +1,13 @@
+#
+# This file includes helper functions for training the neural network.
+#
+
 import numpy as np
 import torch
 
 class Scheduler:
+    """ Scheduler with early stopping and checkpoint saving.
+    """
     def __init__(self, path, name,  patience = 3, min_delta = 0):
         self.output_path = path + name + ".pt"
         self.best_loss = np.inf

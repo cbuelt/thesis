@@ -1,13 +1,33 @@
+#
+# THis file can be used to calculate the metrics and save them as a pandas dataframe.
+#
+
 from metrics import *
 import pyreadr
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 0.05, model2 = None):
+def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_e, alpha = 0.05, model2 = None):
+    """ Given a results table, this method caluclates the corresponding metrics.
+
+    Args:
+        results (_type_): An empty dataframe in a specified format.
+        model (_type_): The max-stable model.
+        true_parameters (_type_): Array of the true parameters.
+        pl (_type_): Array of the estimated parameters (PL).
+        abc (_type_): Array of the estimated parameters (ABC).
+        cnn (_type_): Array of the estimated parameters (CNN).
+        cnn_e (_type_): Array of the estimated parameters (CNN_E).
+        alpha (float, optional): Alpha quantile for the interval score. Defaults to 0.05.
+        model2 (_type_, optional): Second model, if comparing two different ones. Defaults to None.
+
+    Returns:
+        _type_: A filled pandas dataframe.
+    """
     #Get mean prediction
     abc_mean = np.mean(abc, axis = 2)
-    cnn_es_mean = np.mean(cnn_es, axis = 2)
+    cnn_es_mean = np.mean(cnn_e, axis = 2)
     # PL
     mse = get_mse(true_parameters, pl, sd = True)
     imse = get_integrated_error(model, true = true_parameters, estimate = pl, sd = True, model2 = model2)
@@ -46,17 +66,17 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
 
     # CNN ES
     mse = get_mse(true_parameters, cnn_es_mean, sd = True)
-    imse = get_integrated_error(model, true = true_parameters, estimate = cnn_es, method = "sample", sd = True, model2 = model2)
+    imse = get_integrated_error(model, true = true_parameters, estimate = cnn_e, method = "sample", sd = True, model2 = model2)
     kld = get_integrated_kld(true_parameters, model, cnn_es_mean, sd = True, model2 = model2)
     results.loc[(model, "MSE_r"), "CNN_ES"] = f"{mse[0][0]:.4f} ({mse[1][0]:.2f})"
     results.loc[(model, "MSE_s"), "CNN_ES"] = f"{mse[0][1]:.4f} ({mse[1][1]:.2f})"
     results.loc[(model, "MSE_ext"), "CNN_ES"] = f"{imse[0]:.4f} ({imse[1]:.2f})"
     results.loc[(model, "KL"), "CNN_ES"] = f"{kld[0]:.4f} ({kld[1]:.2f})"
 
-    quantiles = np.quantile(cnn_es, [alpha/2,1-(alpha/2)], axis = 2)
+    quantiles = np.quantile(cnn_e, [alpha/2,1-(alpha/2)], axis = 2)
     iscore = get_interval_score(true_parameters, alpha = alpha, q_left = quantiles[0], q_right = quantiles[1], sd = True)
-    iis = get_integrated_is(model, true = true_parameters, estimate = cnn_es, alpha = alpha, sd = True, model2 = model2)
-    es = get_energy_score(true_parameters, cnn_es, sd = True)
+    iis = get_integrated_is(model, true = true_parameters, estimate = cnn_e, alpha = alpha, sd = True, model2 = model2)
+    es = get_energy_score(true_parameters, cnn_e, sd = True)
     results.loc[(model, "IS_r",), "CNN_ES"] = f"{iscore[0][0]:.4f} ({iscore[1][0]:.2f})"
     results.loc[(model, "IS_s",), "CNN_ES"] = f"{iscore[0][1]:.4f} ({iscore[1][1]:.2f})"
     results.loc[(model, ["IIS"]), "CNN_ES"] = f"{iis[0]:.4f} ({iis[1]:.2f})"
@@ -65,6 +85,16 @@ def fill_metrics(results, model, true_parameters, pl, abc, cnn, cnn_es, alpha = 
 
 
 def load_predictions(data_path, results_path, model):
+    """ This function loads the different predictions.
+
+    Args:
+        data_path (_type_): The path for loading the data.
+        results_path (_type_): The path for the results.
+        model (_type_): The max-stable model.
+
+    Returns:
+        _type_: The true and estimated parameters.
+    """
     # Load true parameters
     true_parameters = pyreadr.read_r(data_path+model+"_test_params.RData")["test_params"].to_numpy()[0:n_test]
     # Load PL
@@ -74,16 +104,27 @@ def load_predictions(data_path, results_path, model):
     # Load normal network
     cnn = np.load(results_path+model+"_cnn.npy")[0:n_test]
     # Load energy network
-    cnn_es = np.load(results_path+model+"_cnn_es.npy")[0:n_test]
+    cnn_e = np.load(results_path+model+"_cnn_es.npy")[0:n_test]
 
-    return true_parameters, pl, abc, cnn, cnn_es
+    return true_parameters, pl, abc, cnn, cnn_e
 
-def get_results_table(exp, models, model2 = None, save = True):
+def get_results_table(dir, models, model2 = None, save = True):
+    """ This function calculates the results table for a given model and directory.
+
+    Args:
+        dir (_type_): Directoy of the data.
+        models (_type_): A list of max-stable models to evaluate
+        model2 (_type_, optional): A second model if comparing two different. Defaults to None.
+        save (bool, optional): Whether to save the results. Defaults to True.
+
+    Returns:
+        _type_: Pandas dataframe with results.
+    """
     # Set data paths
-    data_path = f'data/{exp}/data/'
-    results_path = f'data/{exp}/results/'
+    data_path = f'data/{dir}/data/'
+    results_path = f'data/{dir}/results/'
     # Set filename
-    filename = models[0] + "_results_table.pkl" if exp == "outside_model" else "results_table.pkl"
+    filename = models[0] + "_results_table.pkl" if dir == "outside_model" else "results_table.pkl"
 
     # Prepare dataframe
     metrics = ["MSE_r", "MSE_s", "MSE_ext", "KL", "IS_r", "IS_s", "IIS", "ES"]

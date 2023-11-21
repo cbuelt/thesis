@@ -1,3 +1,7 @@
+#
+# Utility functions for plotting.
+#
+
 import numpy as np
 from evaluation.metrics import bivariate_density
 

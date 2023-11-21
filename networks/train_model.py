@@ -1,7 +1,10 @@
+#
+# This file includes all the code required for training the neural network.
+#
+
 import numpy as np
 import torch
 from torch import optim
-from torch.utils.data import ConcatDataset, DataLoader
 import os
 import sys
 sys.path.append(os.getcwd())
@@ -11,12 +14,9 @@ from utils.network import Scheduler
 from utils.utils import retransform_parameters
 from utils.losses import EnergyScore
 
-from datetime import datetime
-
-
 
 def train_model(
-    exp: str,
+    dir: str,
     model: str,
     epochs: int,
     batch_size: int,
@@ -27,8 +27,25 @@ def train_model(
     dropout: float = 0.0,
     sample_dim: float = 100,
 ):
+    """ The function trains a model based on the given specification.
+
+    Args:
+        dir (str): The directory in the data folder, e.g. "normal", "application".
+        model (str): The max-stable model to estimate.
+        epochs (int): Number or training epochs.
+        batch_size (int): Batch size.
+        device (_type_): The CUDA device.
+        type (str, optional): The network type (normal or energy). Defaults to "normal".
+        learning_rate (float, optional): The learning rate. Defaults to 0.0007.
+        n_val (int, optional): The Batch Size for the validation data. Defaults to 500.
+        dropout (float, optional): Dropouit. Defaults to 0.0.
+        sample_dim (float, optional): The number of samples to draw from the energy network. Defaults to 100.
+
+    Returns:
+        _type_: Trained neural network.
+    """
     # Set path
-    path = f"data/{exp}/data/"
+    path = f"data/{dir}/data/"
     # Get dataloaders
     train_dataloader, val_dataloader, _, _ = get_train_val_loader(
         data_path=path, model=model, batch_size=batch_size, batch_size_val=n_val
@@ -40,14 +57,13 @@ def train_model(
     elif type == "energy":
         net = CNN_ES(sample_dim = sample_dim)
         loss_function = EnergyScore()
-
-
     net.to(device)
+    # Set optimizer
     optimizer = optim.RMSprop(net.parameters(), lr=learning_rate)
 
     # Initialize Scheduler
     scheduler = Scheduler(
-        path=f"data/{exp}/checkpoints/",
+        path=f"data/{dir}/checkpoints/",
         name=f"{model}_{net.name}",
         patience=5,
         min_delta=0,
@@ -60,7 +76,7 @@ def train_model(
             img = img.to(device)
             param = param.to(device)
 
-            # zero the parameter gradients
+            #Zero the parameter gradients
             optimizer.zero_grad()
             net.train()
 
@@ -88,22 +104,33 @@ def train_model(
         print(
             f"Epoch: {epoch} \t Training loss: {train_loss:.4f} \t Validation loss: {val_loss:.4f}"
         )
-
         stop = scheduler(np.mean(val_loss), epoch, net)
         if stop:
             break
     return net
 
 def predict_test_data(
-        exp : str,
+        dir : str,
         model: str,
+        device,
         test_size: int,
         type: str = "normal",
         batch_size_test: int = 500,
         sample_dim: int = 500,
 ):
+    """ This function calls a model checkpoint and predicts the test data.
+
+    Args:
+        dir (str): The directory in the data folder, e.g. "normal", "application".
+        model (str): The max-stable model to estimate.
+        device (_type_): The CUDA device.
+        test_size (int): The size of the test dataset.
+        type (str, optional): The network type (normal or energy). Defaults to "normal".
+        batch_size_test (int, optional): The Batch size for the test data. Defaults to 500.
+        sample_dim (float, optional): The number of samples to draw from the energy network. Defaults to 100.
+    """
     # Set path
-    path = f"data/{exp}/data/"
+    path = f"data/{dir}/data/"
     test_loader, _ = get_test_loader(data_path = path, model = model, batch_size = batch_size_test)
 
     # Load model
@@ -112,7 +139,7 @@ def predict_test_data(
     elif type == "energy":
         net = CNN_ES(sample_dim = sample_dim)
 
-    net.load_state_dict(torch.load(f"data/{exp}/checkpoints/{model}_{net.name}.pt"))
+    net.load_state_dict(torch.load(f"data/{dir}/checkpoints/{model}_{net.name}.pt"))
 
     #Send model to device
     net.to(device)
@@ -137,14 +164,14 @@ def predict_test_data(
         elif type == "energy":
             test_results[:, (i*batch_size_test):((i+1)*batch_size_test),:] = outputs
 
-    np.save(file = f"data/{exp}/results/{model}_{net.name}.npy", arr = test_results)
+    np.save(file = f"data/{dir}/results/{model}_{net.name}.npy", arr = test_results)
     print(f"Saved results for model {model} and network {net.name}")
 
 
 if __name__ == "__main__":
     # Set model
     models = ["brown", "powexp"]
-    exp = "normal"
+    dir = "normal"
     types = ["energy", "normal"]
     epochs = 100
     batch_size = 100
@@ -154,6 +181,5 @@ if __name__ == "__main__":
 
     for model in models:
         for type in types:
-            start_time = datetime.now()
-            trained_net = train_model(exp, model, epochs, batch_size, device, type = type)
-            predict_test_data(exp, model, test_size = 500, type = type)
+            trained_net = train_model(dir, model, epochs, batch_size, device, type = type)
+            predict_test_data(dir, model, device, test_size = 500, type = type)
