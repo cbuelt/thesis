@@ -10,7 +10,7 @@ All folders for the different experiments have the same structure and contain su
 | ---- | ----------- | 
 | `normal` | All data related to the normal results. |
 | `outside_parameters` | All data related to the robustness scenario 1. |
-| `outside_model` | All data related to the robustness scenario 2 & 2. |
+| `outside_model` | All data related to the robustness scenario 2 & 3. |
 | `application` | All data related to the empirical part. |
 
 
