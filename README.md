@@ -13,7 +13,7 @@
 1. Install the `R` packages.
 	- Source the file `utils/requirements.R`.
 1. Install the python requirements.
-    - Create a conda environment using ```conda env create -f utils/environment.yml```
+    - Create a conda environment using ```conda env create -f utils/requirements.yml```
     - For help see see [here](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 
 ## Reproducing results
