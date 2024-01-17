@@ -4,7 +4,7 @@
 
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from utils import transform_parameters
+from utils.utils import transform_parameters
 import torchvision.transforms as T
 from torchvision.transforms.functional import rotate
 import random
