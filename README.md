@@ -13,7 +13,7 @@
 1. Install the `R` packages.
 	- Source the file `utils/requirements.R`.
 1. Install the python requirements.
-    - Create a conda environment using ```conda env create -f utils/environment.yml```
+    - Create a conda environment using ```conda env create -f utils/requirements.yml```
     - For help see see [here](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 
 ## Reproducing results
@@ -29,6 +29,7 @@ For all models and experiments, the results are saved in the corresponding data 
 | `data` | Contains the data used in the thesis and required to reproduce the results. |
 | `evaluation` | Contains code for evaluating the different models. |
 | `mle` | Contains code related to the Pairwise Likelihood approach. |
+| `networks` | Contains the implementation of the neural networks. |
 | `plots` | Contains code for the plots used in the thesis. |
 | `simulation` | Contains code for simulating max-stable processes. |
 | `utils` | Contains utility functions. |
